@@ -12,4 +12,4 @@ echo "Avvio server... Il browser si aprirà automaticamente."
 echo "Per fermare l'app premi CTRL+C"
 echo ""
 
-python app.py
+python run.py

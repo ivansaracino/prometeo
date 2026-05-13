@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Archivi Fatture e DDT{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{{ url_for('amministrazione.amministrazione') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <h2 class="fw-bold mb-0"><i class="bi bi-archive me-2 text-primary"></i>Archivi Fatture e DDT</h2>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('amministrazione.scarica_archivio_generale') }}" class="btn btn-primary">
+        <i class="bi bi-download me-2"></i>Scarica Tutto (ZIP)
+      </a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if not commesse_arch %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-archive display-3 mb-3 d-block"></i>
+        <h5>Nessun archivio disponibile</h5>
+        <p class="mb-0">Gli archivi vengono creati automaticamente quando una fattura con DDT viene approvata.</p>
+      </div>
+    </div>
+  {% else %}
+    {% for gruppo in commesse_arch %}
+      {% set commessa = gruppo.commessa %}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+          <div>
+            {% if commessa %}
+              <span class="badge bg-primary me-2">{{ commessa.codice }}</span>
+              <span class="fw-semibold fs-5">{{ commessa.nome }}</span>
+              {% if commessa.cliente %}
+                <span class="text-muted ms-2">— {{ commessa.cliente.nome }}</span>
+              {% endif %}
+            {% else %}
+              <span class="fw-semibold fs-5 text-muted">Commessa non abbinata</span>
+            {% endif %}
+          </div>
+          {% if commessa %}
+            <a href="{{ url_for('amministrazione.scarica_archivio_commessa', commessa_id=commessa.id) }}"
+               class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-download me-1"></i>Scarica Commessa
+            </a>
+          {% endif %}
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Fattura</th>
+                <th>Data</th>
+                <th>Fornitore</th>
+                <th>Importo</th>
+                <th>DDT Collegati</th>
+                <th>File Fattura</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in gruppo.fatture %}
+                {% set f = item.fattura %}
+                <tr>
+                  <td class="fw-semibold">{{ f.numero or '—' }}</td>
+                  <td>{{ f.data_emissione.strftime('%d/%m/%Y') if f.data_emissione else '—' }}</td>
+                  <td>{{ f.cliente_fornitore or '—' }}</td>
+                  <td class="fw-bold text-success">€ {{ '%.2f'|format(f.importo or 0) }}</td>
+                  <td>
+                    {% if item.bolle %}
+                      <span class="badge bg-secondary me-1">{{ item.bolle|length }} boll{{ 'a' if item.bolle|length == 1 else 'e' }}</span>
+                      <button class="btn btn-sm btn-outline-secondary" type="button"
+                              data-bs-toggle="collapse" data-bs-target="#bolle-{{ f.id }}">
+                        <i class="bi bi-list"></i>
+                      </button>
+                      <div class="collapse mt-2" id="bolle-{{ f.id }}">
+                        <ul class="list-unstyled mb-0 small">
+                          {% for d in item.bolle %}
+                          <li class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-light text-dark border">{{ d.numero or '—' }}</span>
+                            <span class="text-muted">{{ d.fornitore or '' }}</span>
+                            <span class="text-success fw-semibold">€{{ '%.2f'|format(d.importo or 0) }}</span>
+                            {% if d.tecnico %}<span class="badge bg-info text-dark">{{ d.tecnico.nome }}</span>{% endif %}
+                            {% if d.file_path %}
+                              <a href="{{ url_for('amministrazione.serve_upload', filepath=d.file_path) }}"
+                                 target="_blank" class="btn btn-sm btn-outline-secondary py-0">
+                                <i class="bi bi-file-pdf"></i>
+                              </a>
+                            {% endif %}
+                          </li>
+                          {% endfor %}
+                        </ul>
+                      </div>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if f.file_path %}
+                      <a href="{{ url_for('amministrazione.serve_upload', filepath=f.file_path) }}"
+                         target="_blank" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-file-pdf me-1"></i>PDF
+                      </a>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

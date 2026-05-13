@@ -133,7 +133,7 @@ Start-Process $tempHtml
 # Avvia Python in background (Logica originale)
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = "python"
-$psi.Arguments = "app.py"
+$psi.Arguments = "run.py"
 $psi.UseShellExecute = $false
 $psi.RedirectStandardOutput = $false
 $psi.RedirectStandardError = $false

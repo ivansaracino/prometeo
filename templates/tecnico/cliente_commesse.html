@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% block title %}{{ cliente.nome }} – Commesse{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('tecnico.tecnico') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="bi bi-folder2-open" style="color:#fff;font-size:1.2rem;"></i>
+        </div>
+        <div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <h1 style="font-size:1.3rem;margin-bottom:0;">{{ cliente.nome }}</h1>
+                {% if cliente.numero %}
+                <span class="badge" style="background:#1e40af;font-size:.78rem;font-weight:800;border-radius:8px;">
+                    C{{ '%03d'|format(cliente.numero) }}
+                </span>
+                {% endif %}
+                {% if cliente.cig or cliente.cup %}
+                <span class="badge" style="background:#92400e;font-size:.72rem;font-weight:700;border-radius:8px;">
+                    <i class="bi bi-bank me-1"></i>Pubblico
+                </span>
+                {% else %}
+                <span class="badge bg-secondary" style="font-size:.72rem;font-weight:700;border-radius:8px;">Privato</span>
+                {% endif %}
+            </div>
+            <div class="d-flex gap-3 flex-wrap" style="font-size:.8rem;color:#64748b;margin-top:4px;">
+                {% if cliente.owner %}
+                <span><i class="bi bi-person-badge me-1"></i><b>Owner:</b> {{ cliente.owner }}</span>
+                {% endif %}
+                {% if cliente.partita_iva %}
+                <span><i class="bi bi-building me-1"></i>P.IVA {{ cliente.partita_iva }}</span>
+                {% endif %}
+                {% if cliente.cig %}
+                <span class="text-warning-emphasis"><i class="bi bi-hash me-1"></i>CIG: {{ cliente.cig }}</span>
+                {% endif %}
+                {% if cliente.cup %}
+                <span class="text-warning-emphasis"><i class="bi bi-hash me-1"></i>CUP: {{ cliente.cup }}</span>
+                {% endif %}
+                <span><i class="bi bi-calendar me-1"></i>{{ cliente.creato_il.strftime('%d/%m/%Y') }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('tecnico.ordini_lista', cliente_id=cliente.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-file-earmark-text me-1"></i>Ordini
+        </a>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuovaCommessa">
+            <i class="bi bi-plus-lg me-1"></i>Nuova Commessa
+        </button>
+    </div>
+</div>
+
+{% if cliente.commesse %}
+<div class="row g-3">
+    {% for c in cliente.commesse | sort(attribute='numero') %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="table-card h-100 p-0" style="border-radius:14px;overflow:hidden;border:1.5px solid #e2e8f0;transition:box-shadow .2s;"
+             onmouseover="this.style.boxShadow='0 4px 24px rgba(59,130,246,.13)'" onmouseout="this.style.boxShadow=''">
+
+            <!-- Header commessa -->
+            <div style="background:linear-gradient(135deg,#1e40af 0%,#3b82f6 100%);padding:16px 20px 14px;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span title="Commessa {{ c.codice }}"
+                          style="background:rgba(255,255,255,.28);color:#fff;border-radius:8px;padding:3px 11px;font-size:.82rem;font-weight:900;letter-spacing:.5px;font-family:monospace;">
+                        {{ c.codice }}
+                    </span>
+                    <form method="POST" action="{{ url_for('tecnico.elimina_commessa', commessa_id=c.id) }}"
+                          onsubmit="return confirm('Eliminare la commessa «{{ c.nome }}» e tutti i suoi dati?')">
+                        <button type="submit" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:none;padding:2px 8px;border-radius:6px;"
+                                title="Elimina commessa">
+                            <i class="bi bi-trash" style="font-size:.75rem;"></i>
+                        </button>
+                    </form>
+                </div>
+                <div class="fw-800 mt-2" style="color:#fff;font-size:1.05rem;line-height:1.2;">{{ c.nome }}</div>
+                {% if c.luogo or c.via %}
+                <div style="color:rgba(255,255,255,.75);font-size:.78rem;margin-top:4px;">
+                    <i class="bi bi-geo-alt me-1"></i>
+                    {% if c.luogo %}{{ c.luogo }}{% endif %}
+                    {% if c.via %}{% if c.luogo %}, {% endif %}{{ c.via }}{% endif %}
+                </div>
+                {% endif %}
+                {% if c.owner %}
+                <div style="color:rgba(255,255,255,.7);font-size:.75rem;margin-top:3px;">
+                    <i class="bi bi-person-badge me-1"></i>{{ c.owner }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Mini stats -->
+            {% set tot_mat  = c.costi | selectattr('categoria','equalto','materiali')  | sum(attribute='importo') %}
+            {% set tot_sub  = c.costi | selectattr('categoria','equalto','subappalti') | sum(attribute='importo') %}
+            {% set tot_per  = c.costi | selectattr('categoria','equalto','personale')  | sum(attribute='importo') %}
+            {% set tot_pass = tot_mat + tot_sub + tot_per %}
+            {% set tot_att  = c.fatture | selectattr('tipo','equalto','attiva') | sum(attribute='importo') %}
+            {% set saldo    = tot_att - tot_pass %}
+            <div class="px-4 py-3">
+                <div class="row g-2 text-center mb-3">
+                    <div class="col-4">
+                        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:700;">Materiali</div>
+                        <div style="font-size:.88rem;font-weight:800;color:#1e40af;">€ {{ '%.0f'|format(tot_mat) }}</div>
+                    </div>
+                    <div class="col-4">
+                        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:700;">Subappalti</div>
+                        <div style="font-size:.88rem;font-weight:800;color:#854d0e;">€ {{ '%.0f'|format(tot_sub) }}</div>
+                    </div>
+                    <div class="col-4">
+                        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:700;">Personale</div>
+                        <div style="font-size:.88rem;font-weight:800;color:#065f46;">€ {{ '%.0f'|format(tot_per) }}</div>
+                    </div>
+                </div>
+                <div style="border-top:1px solid #f1f5f9;padding-top:10px;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="font-size:.72rem;color:#64748b;font-weight:700;">
+                        <i class="bi bi-calculator me-1"></i>Saldo
+                    </div>
+                    <div style="font-size:1.05rem;font-weight:900;color:{{ '#16a34a' if saldo >= 0 else '#dc2626' }};">
+                        {% if saldo >= 0 %}+{% endif %}€ {{ '%.2f'|format(saldo) }}
+                    </div>
+                </div>
+            </div>
+            <div class="px-4 pb-4">
+                <a href="{{ url_for('tecnico.commessa_detail', commessa_id=c.id) }}"
+                   class="btn btn-primary w-100" style="border-radius:10px;">
+                    <i class="bi bi-folder2-open me-2"></i>Apri Commessa
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-layers"></i>
+    <h4>Nessuna commessa</h4>
+    <p class="text-muted">Aggiungi la prima commessa per questo cliente.</p>
+    <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#modalNuovaCommessa">
+        <i class="bi bi-plus-lg me-2"></i>Nuova Commessa
+    </button>
+</div>
+{% endif %}
+
+<!-- Modal Nuova Commessa -->
+<div class="modal fade" id="modalNuovaCommessa" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-700">
+                    <i class="bi bi-layers me-2 text-primary"></i>Nuova Commessa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('tecnico.nuova_commessa', cliente_id=cliente.id) }}">
+                <div class="modal-body pt-3">
+                    {% set prossimo_n = (cliente.commesse | map(attribute='numero') | max + 1) if cliente.commesse else 1 %}
+                    <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center gap-2" style="border-radius:10px;font-size:.82rem;">
+                        <i class="bi bi-info-circle-fill"></i>
+                        Il numero commessa verrà assegnato automaticamente:
+                        <strong>N° {{ prossimo_n }}</strong>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-700">Nome Commessa <span class="text-danger">*</span></label>
+                        <input type="text" name="nome" class="form-control"
+                               placeholder="Es. Ristrutturazione piano terra" required autofocus>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-700">Luogo</label>
+                            <input type="text" name="luogo" class="form-control" placeholder="Es. Milano">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-700">Via / Indirizzo</label>
+                            <input type="text" name="via" class="form-control" placeholder="Es. Via Roma 12">
+                        </div>
+                    </div>
+
+                    <label class="form-label fw-700">Responsabile (Owner)</label>
+                    <select name="owner" class="form-select">
+                        <option value="">— nessun responsabile —</option>
+                        {% for r in responsabili %}
+                        <option value="{{ r.nome }}"
+                            {% if cliente.owner == r.nome %}selected{% endif %}>
+                            {{ r.nome }}{% if r.posizione %} – {{ r.posizione }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>Crea
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

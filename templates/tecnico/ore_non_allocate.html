@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Ore Rifiutate – Gestionale{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('tecnico.tecnico') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1><i class="bi bi-x-circle text-danger me-2" style="font-size:1rem;"></i>Ore Rifiutate</h1>
+            <p class="mb-0 text-muted small">Ore inviate dagli operai e rifiutate dal responsabile</p>
+        </div>
+    </div>
+    <a href="{{ url_for('tecnico.approvazioni_ore') }}" class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-hourglass-split me-1"></i>Vai ad Approvazioni
+    </a>
+</div>
+
+<!-- KPI -->
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#dc2626;">{{ voci|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Voci rifiutate</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#1e40af;">{{ '%.1f'|format(tot_ore) }}h</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Ore totali</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.3rem;color:#0f172a;">€ {{ '%.2f'|format(tot_importo) }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Importo totale</div>
+        </div>
+    </div>
+</div>
+
+{% if voci %}
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="font-size:.78rem;">Data</th>
+                    <th style="font-size:.78rem;">Operaio / Descrizione</th>
+                    <th class="text-center" style="font-size:.78rem;">Ore</th>
+                    <th class="text-end" style="font-size:.78rem;">Importo</th>
+                    <th style="font-size:.78rem;">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in voci %}
+                <tr>
+                    <td class="text-muted" style="font-size:.78rem;white-space:nowrap;">
+                        {{ v.data.strftime('%d/%m/%Y') if v.data else '—' }}
+                    </td>
+                    <td style="font-size:.82rem;">
+                        <span class="fw-600">{{ v.descrizione }}</span>
+                    </td>
+                    <td class="text-center fw-700" style="font-size:.84rem;color:#1e40af;">
+                        {% if v.sottocategoria == 'ore' %}
+                        {{ '%.1f'|format(v.quantita or 0) }}h
+                        {% else %}
+                        {{ (v.quantita or 0)|int }} km
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-700" style="font-size:.84rem;">
+                        {% if v.importo %}€ {{ '%.2f'|format(v.importo) }}{% else %}—{% endif %}
+                    </td>
+                    <td>
+                        <!-- Riassegna a commessa -->
+                        <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                                style="font-size:.72rem;"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalAssegna{{ v.id }}">
+                            <i class="bi bi-arrow-right-circle me-1"></i>Riassegna
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal assegna per ogni voce -->
+{% for v in voci %}
+<div class="modal fade" id="modalAssegna{{ v.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-700">
+                    <i class="bi bi-arrow-right-circle me-2 text-primary"></i>Riassegna a Commessa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('tecnico.assegna_ora_non_allocata', voce_id=v.id) }}">
+                <div class="modal-body pt-3">
+                    <p class="text-muted small mb-3">
+                        Voce: <strong>{{ v.descrizione }}</strong> —
+                        {% if v.sottocategoria == 'ore' %}{{ '%.1f'|format(v.quantita or 0) }}h{% else %}{{ (v.quantita or 0)|int }} km{% endif %}
+                        del {{ v.data.strftime('%d/%m/%Y') if v.data else '—' }}
+                    </p>
+                    <label class="form-label fw-700">Seleziona Commessa</label>
+                    <select name="commessa_id" class="form-select" required>
+                        <option value="">— scegli la commessa —</option>
+                        {% for c in commesse_all %}
+                        <option value="{{ c.id }}">{{ c.cliente.nome }} › {{ c.nome }}
+                            {% if c.luogo %} ({{ c.luogo }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Riassegna e Approva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-check-circle text-success" style="font-size:2.5rem;"></i>
+    <h4 class="mt-2">Nessuna ora rifiutata</h4>
+    <p class="text-muted">Non ci sono ore rifiutate al momento.</p>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% block title %}Approvazioni Ore – Gestionale{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('tecnico.tecnico') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1><i class="bi bi-hourglass-split text-warning me-2" style="font-size:1rem;"></i>Approvazioni Ore</h1>
+            <p class="mb-0 text-muted small">Ore inviate dagli operai in attesa di conferma</p>
+        </div>
+    </div>
+    <a href="{{ url_for('tecnico.ore_non_allocate') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-x-circle me-1"></i>Vedi rifiutate
+    </a>
+</div>
+
+<!-- KPI -->
+<div class="row g-2 mb-3">
+    <div class="col-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#d97706;">{{ voci|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">In attesa</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#1e40af;">{{ '%.1f'|format(tot_ore) }}h</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Ore</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#7e22ce;">{{ tot_km|int }} km</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Km</div>
+        </div>
+    </div>
+</div>
+
+{% if voci %}
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="font-size:.78rem;">Data</th>
+                    <th style="font-size:.78rem;">Operaio / Luogo</th>
+                    <th class="text-center" style="font-size:.78rem;">Tipo</th>
+                    <th class="text-center" style="font-size:.78rem;">Qtà</th>
+                    <th style="font-size:.78rem;">Commessa suggerita</th>
+                    <th style="font-size:.78rem;">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in voci %}
+                {% set comm_sug = commesse_all | selectattr('id','equalto', v.commessa_suggerita_id) | list | first if v.commessa_suggerita_id else None %}
+                <tr>
+                    <td class="text-muted" style="font-size:.78rem;white-space:nowrap;">
+                        {{ v.data.strftime('%d/%m/%Y') if v.data else '—' }}
+                    </td>
+                    <td style="font-size:.82rem;">
+                        <span class="fw-600">{{ v.descrizione }}</span>
+                    </td>
+                    <td class="text-center" style="font-size:.78rem;">
+                        {% if v.sottocategoria == 'ore' %}
+                        {%- set pop_titolo = 'Dettaglio Ore' %}
+                        {%- set pop_body -%}
+<strong>{{ v.descrizione | replace('"', '&quot;') }}</strong><br>
+<i class='bi bi-calendar3 me-1'></i>{{ v.data.strftime('%d/%m/%Y') if v.data else '—' }}<br>
+<i class='bi bi-clock me-1'></i>Ore: <strong>{{ '%.1f'|format(v.quantita or 0) }} h</strong><br>
+{% if v.valore_unitario %}<i class='bi bi-currency-euro me-1'></i>Tariffa: {{ '%.2f'|format(v.valore_unitario) }} €/h<br>{% endif %}
+<i class='bi bi-wallet2 me-1'></i>Totale: <strong>€ {{ '%.2f'|format(v.importo or 0) }}</strong><br>
+{% if comm_sug %}<i class='bi bi-geo-alt me-1 text-primary'></i>{{ comm_sug.codice }} – {{ comm_sug.nome }}{% endif %}
+                        {%- endset -%}
+                        <button type="button"
+                                class="badge bg-primary border-0 ore-pop"
+                                style="cursor:pointer;"
+                                data-bs-toggle="popover"
+                                data-bs-placement="right"
+                                data-bs-trigger="click"
+                                data-bs-html="true"
+                                data-bs-title="{{ pop_titolo }}"
+                                data-bs-content="{{ pop_body | replace(chr(10), '') | replace('"', '&quot;') }}">
+                            <i class="bi bi-clock me-1"></i>Ore
+                        </button>
+                        {% else %}
+                        {%- set pop_body_km -%}
+<strong>{{ v.descrizione | replace('"', '&quot;') }}</strong><br>
+<i class='bi bi-calendar3 me-1'></i>{{ v.data.strftime('%d/%m/%Y') if v.data else '—' }}<br>
+<i class='bi bi-speedometer2 me-1'></i>Km: <strong>{{ (v.quantita or 0)|int }} km</strong><br>
+{% if v.valore_unitario %}<i class='bi bi-currency-euro me-1'></i>Tariffa: {{ '%.3f'|format(v.valore_unitario) }} €/km<br>{% endif %}
+<i class='bi bi-wallet2 me-1'></i>Totale: <strong>€ {{ '%.2f'|format(v.importo or 0) }}</strong>
+                        {%- endset -%}
+                        <button type="button"
+                                class="badge border-0 ore-pop"
+                                style="background:#7e22ce!important;cursor:pointer;"
+                                data-bs-toggle="popover"
+                                data-bs-placement="right"
+                                data-bs-trigger="click"
+                                data-bs-html="true"
+                                data-bs-title="Dettaglio Km"
+                                data-bs-content="{{ pop_body_km | replace(chr(10), '') | replace('"', '&quot;') }}">
+                            <i class="bi bi-speedometer2 me-1"></i>Km
+                        </button>
+                        {% endif %}
+                    </td>
+                    <td class="text-center fw-700" style="font-size:.84rem;">
+                        {% if v.sottocategoria == 'ore' %}
+                        <span style="color:#1d4ed8;">{{ '%.1f'|format(v.quantita or 0) }}h</span>
+                        {% else %}
+                        <span style="color:#7e22ce;">{{ (v.quantita or 0)|int }} km</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:.78rem;">
+                        {% if comm_sug %}
+                        <span class="text-primary fw-600">
+                            <i class="bi bi-geo-alt me-1"></i>{{ comm_sug.cliente.nome }} › {{ comm_sug.nome }}
+                        </span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <!-- Approva -->
+                            <button class="btn btn-sm btn-success py-0 px-2"
+                                    style="font-size:.72rem;"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalApprova{{ v.id }}">
+                                <i class="bi bi-check-lg me-1"></i>Approva
+                            </button>
+                            <!-- Rifiuta -->
+                            <form method="POST" action="{{ url_for('tecnico.azione_approvazione_ora', voce_id=v.id) }}">
+                                <input type="hidden" name="azione" value="rifiuta">
+                                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"
+                                        style="font-size:.72rem;"
+                                        onclick="return confirm('Rifiutare queste ore?')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal approva per ogni voce -->
+{% for v in voci %}
+{% set comm_sug = commesse_all | selectattr('id','equalto', v.commessa_suggerita_id) | list | first if v.commessa_suggerita_id else None %}
+<div class="modal fade" id="modalApprova{{ v.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-700">
+                    <i class="bi bi-check-circle me-2 text-success"></i>Approva e Assegna
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('tecnico.azione_approvazione_ora', voce_id=v.id) }}">
+                <input type="hidden" name="azione" value="approva">
+                <div class="modal-body pt-3">
+                    <p class="text-muted small mb-2">
+                        <strong>{{ v.descrizione }}</strong> · {{ v.data.strftime('%d/%m/%Y') if v.data else '—' }}
+                    </p>
+
+                    <!-- Quantità modificabile -->
+                    <div class="mb-3 p-3" style="background:#f0fdf4;border-radius:10px;border:1.5px solid #bbf7d0;">
+                        <label class="form-label fw-700 mb-1" style="font-size:.85rem;">
+                            {% if v.sottocategoria == 'ore' %}
+                            <i class="bi bi-clock me-1 text-primary"></i>Ore lavorate
+                            {% else %}
+                            <i class="bi bi-speedometer2 me-1 text-purple"></i>Km percorsi
+                            {% endif %}
+                            <span class="text-muted fw-400">(modifica se necessario)</span>
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <input type="number"
+                                   name="nuova_quantita"
+                                   class="form-control fw-700"
+                                   style="font-size:1.1rem;"
+                                   step="{% if v.sottocategoria == 'ore' %}0.5{% else %}1{% endif %}"
+                                   min="0"
+                                   value="{{ '%.1f'|format(v.quantita or 0) if v.sottocategoria == 'ore' else (v.quantita or 0)|int }}"
+                                   required>
+                            <span class="input-group-text fw-700">
+                                {% if v.sottocategoria == 'ore' %}h{% else %}km{% endif %}
+                            </span>
+                        </div>
+                        {% if v.valore_unitario %}
+                        <div class="mt-1" style="font-size:.75rem;color:#166534;">
+                            <i class="bi bi-calculator me-1"></i>
+                            Tariffa: € {{ '%.2f'|format(v.valore_unitario) }}/{{ 'h' if v.sottocategoria == 'ore' else 'km' }}
+                            — l'importo verrà ricalcolato automaticamente
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <label class="form-label fw-700">Assegna a Commessa</label>
+                    <select name="commessa_id" class="form-select" required>
+                        <option value="">— seleziona commessa —</option>
+                        {% for c in commesse_all %}
+                        <option value="{{ c.id }}"
+                            {% if comm_sug and c.id == comm_sug.id %}selected{% endif %}>
+                            {{ c.cliente.nome }} › {{ c.nome }}
+                            {% if c.luogo %} ({{ c.luogo }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% if comm_sug %}
+                    <div class="mt-2 text-success small fw-600">
+                        <i class="bi bi-robot me-1"></i>Commessa suggerita pre-selezionata
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i>Approva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-check-circle text-success" style="font-size:2.5rem;"></i>
+    <h4 class="mt-2">Nessuna ore in attesa</h4>
+    <p class="text-muted">Tutte le ore degli operai sono già state elaborate.</p>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var popList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    popList.forEach(function (el) {
+        new bootstrap.Popover(el, { sanitize: false });
+    });
+    document.addEventListener('click', function(e) {
+        popList.forEach(function(el) {
+            var pop = bootstrap.Popover.getInstance(el);
+            if (pop && !el.contains(e.target) && !document.querySelector('.popover')?.contains(e.target)) {
+                pop.hide();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

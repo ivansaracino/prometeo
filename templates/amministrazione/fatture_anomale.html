@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}Fatture Anomale – Gestionale{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ lista_url }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1 style="font-size:1.3rem;">
+                <i class="bi bi-file-earmark-x text-danger me-2"></i>Fatture Anomale
+            </h1>
+            <p class="mb-0 text-muted small">
+                Fatture passive di materiali senza codice cliente o commessa associata —
+                impossibile abbinare DDT
+            </p>
+        </div>
+    </div>
+    <a href="{{ url_for('amministrazione.amministrazione') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-receipt me-1"></i>Torna all'Amministrazione
+    </a>
+</div>
+
+<!-- KPI -->
+<div class="row g-2 mb-3">
+    <div class="col-6">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#dc2626;">{{ fatture|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Fatture senza commessa</div>
+        </div>
+    </div>
+    <div class="col-6">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#0f172a;">
+                € {{ '%.0f'|format(fatture | sum(attribute='importo')) }}
+            </div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Importo tot.</div>
+        </div>
+    </div>
+</div>
+
+<!-- Spiegazione -->
+<div class="table-card mb-3 p-3" style="background:#fff1f2;border:1.5px solid #fecaca;">
+    <div class="d-flex gap-2">
+        <i class="bi bi-exclamation-triangle-fill text-danger mt-1 flex-shrink-0"></i>
+        <div style="font-size:.85rem;">
+            <strong>Perché queste fatture sono anomale?</strong><br>
+            Le fatture passive di <span class="badge bg-info text-white">Materiali</span> devono avere
+            un <strong>codice cliente</strong> e un <strong>codice commessa</strong> associati per poter
+            abbinare i DDT corrispondenti.<br>
+            Per correggere: vai su <strong>Amministrazione → Fatture Passive</strong>, trova la fattura
+            e assegnale il cliente e la commessa corretti (se la funzione è disponibile) oppure
+            eliminala e ricaricala selezionando il cliente/commessa.
+        </div>
+    </div>
+</div>
+
+{% if fatture %}
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="font-size:.78rem;">N° Fattura</th>
+                    <th style="font-size:.78rem;">Fornitore</th>
+                    <th style="font-size:.78rem;">Emissione</th>
+                    <th style="font-size:.78rem;">Scadenza</th>
+                    <th class="text-end" style="font-size:.78rem;">Importo</th>
+                    <th class="text-center" style="font-size:.78rem;">Cliente</th>
+                    <th class="text-center" style="font-size:.78rem;">Commessa</th>
+                    <th class="text-center" style="font-size:.78rem;">Stato</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in fatture %}
+                <tr style="background:#fff1f2;">
+                    <td class="fw-700" style="font-size:.84rem;">{{ f.numero or '—' }}</td>
+                    <td style="font-size:.82rem;">{{ f.cliente_fornitore or '—' }}</td>
+                    <td class="text-muted" style="font-size:.78rem;white-space:nowrap;">
+                        {{ f.data_emissione.strftime('%d/%m/%Y') if f.data_emissione else '—' }}
+                    </td>
+                    <td class="text-muted" style="font-size:.78rem;white-space:nowrap;">
+                        {{ f.data_scadenza.strftime('%d/%m/%Y') if f.data_scadenza else '—' }}
+                    </td>
+                    <td class="text-end fw-700" style="font-size:.84rem;">€ {{ '%.2f'|format(f.importo) }}</td>
+                    <td class="text-center" style="font-size:.78rem;">
+                        {% if f.cliente_id %}
+                        {% set cl = f.cliente %}
+                        <span class="text-success fw-600">{{ cl.nome if cl else '?' }}</span>
+                        {% else %}
+                        <span class="badge" style="background:#fee2e2;color:#991b1b;font-size:.7rem;">
+                            <i class="bi bi-x-circle me-1"></i>Mancante
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center" style="font-size:.78rem;">
+                        {% if f.commessa_id %}
+                        {% set cm = f.commessa_obj %}
+                        <span class="text-primary fw-600">N°{{ cm.numero if cm else '?' }}</span>
+                        {% else %}
+                        <span class="badge" style="background:#fee2e2;color:#991b1b;font-size:.7rem;">
+                            <i class="bi bi-x-circle me-1"></i>Mancante
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if f.pagata %}
+                        <span class="badge bg-success" style="font-size:.7rem;">Pagata</span>
+                        {% else %}
+                        <span class="badge bg-secondary" style="font-size:.7rem;">Non pagata</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-check-circle text-success" style="font-size:2.5rem;"></i>
+    <h4 class="mt-2">Nessuna fattura anomala</h4>
+    <p class="text-muted">Tutte le fatture passive materiali hanno cliente e commessa associati.</p>
+</div>
+{% endif %}
+
+{% endblock %}

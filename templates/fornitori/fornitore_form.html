@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Modifica' if fornitore else 'Nuovo' }} Fornitore — PROMETEO{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:680px">
+  <div class="d-flex align-items-center mb-4 gap-3">
+    <a href="{{ url_for('fornitori.fornitori_lista') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <h2 class="fw-bold mb-0">
+      <i class="bi bi-building me-2 text-primary"></i>
+      {{ 'Modifica Fornitore' if fornitore else 'Nuovo Fornitore' }}
+    </h2>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }} alert-dismissible fade show">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Nome / Ragione Sociale <span class="text-danger">*</span></label>
+          <input type="text" name="nome" class="form-control" required
+                 value="{{ fornitore.nome if fornitore else '' }}" placeholder="Es. Mario Rossi Srl">
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Partita IVA</label>
+            <input type="text" name="partita_iva" class="form-control font-monospace"
+                   value="{{ fornitore.partita_iva if fornitore else '' }}"
+                   placeholder="IT01234567890">
+            <div class="form-text text-success"><i class="bi bi-check-circle me-1"></i>Necessaria per il matching automatico DDT ↔ Fattura</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Codice Fiscale</label>
+            <input type="text" name="codice_fiscale" class="form-control font-monospace"
+                   value="{{ fornitore.codice_fiscale if fornitore else '' }}"
+                   placeholder="RSSMRA80A01H501U">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Indirizzo</label>
+          <input type="text" name="indirizzo" class="form-control"
+                 value="{{ fornitore.indirizzo if fornitore else '' }}"
+                 placeholder="Via Roma 1, 00100 Roma (RM)">
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-7">
+            <label class="form-label fw-semibold">Email</label>
+            <input type="email" name="email" class="form-control"
+                   value="{{ fornitore.email if fornitore else '' }}"
+                   placeholder="info@fornitore.it">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label fw-semibold">Telefono</label>
+            <input type="tel" name="telefono" class="form-control"
+                   value="{{ fornitore.telefono if fornitore else '' }}"
+                   placeholder="+39 02 1234567">
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Note</label>
+          <textarea name="note" class="form-control" rows="3"
+                    placeholder="Note aggiuntive…">{{ fornitore.note if fornitore else '' }}</textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>{{ 'Aggiorna' if fornitore else 'Salva Fornitore' }}
+          </button>
+          <a href="{{ url_for('fornitori.fornitori_lista') }}" class="btn btn-outline-secondary">Annulla</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

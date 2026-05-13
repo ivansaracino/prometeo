@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block title %}Tecnico – Gestionale{% endblock %}
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="info-card card-icon icon-blue" style="margin:0;padding:12px;width:48px;height:48px;font-size:1.3rem;border-radius:12px;">
+            <i class="bi bi-tools"></i>
+        </div>
+        <div>
+            <h1>Area Tecnica</h1>
+            <p class="mb-0 text-muted small">Cantieri e commesse</p>
+        </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('tecnico.tutti_ordini') }}" class="btn btn-outline-success">
+            <i class="bi bi-file-earmark-text me-1"></i>Tutti gli Ordini
+        </a>
+        <a href="{{ url_for('tecnico.ddt_lista_tecnico') }}" class="btn btn-outline-info">
+            <i class="bi bi-truck me-1"></i>DDT
+        </a>
+        <a href="{{ url_for('tecnico.ddt_da_approvare') }}" class="btn btn-outline-warning position-relative">
+            <i class="bi bi-clipboard-check me-1"></i>Bolle da Approvare
+            {% if n_bolle_da_approvare and n_bolle_da_approvare > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                  style="font-size:.6rem;">{{ n_bolle_da_approvare }}</span>
+            {% endif %}
+        </a>
+        <a href="{{ url_for('tecnico.approvazioni_ore') }}" class="btn btn-outline-warning position-relative">
+            <i class="bi bi-hourglass-split me-1"></i>Approvazioni Ore
+        </a>
+        <a href="{{ url_for('tecnico.approvazioni_fatture') }}" class="btn btn-outline-danger position-relative">
+            <i class="bi bi-receipt me-1"></i>Approvazioni Fatture
+            {% if n_fatture_pending and n_fatture_pending > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                  style="font-size:.6rem;">{{ n_fatture_pending }}</span>
+            {% endif %}
+        </a>
+        <a href="{{ url_for('tecnico.ore_non_allocate') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-clock-history me-1"></i>Ore rifiutate
+        </a>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuovoCliente">
+            <i class="bi bi-plus-lg me-2"></i>Nuovo Cliente
+        </button>
+    </div>
+</div>
+
+<!-- Barra di ricerca -->
+<div class="mb-3">
+    <div class="input-group" style="max-width:420px;">
+        <span class="input-group-text bg-white border-end-0">
+            <i class="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" id="searchClienti" class="form-control border-start-0 ps-0"
+               placeholder="Cerca cliente / cantiere…" oninput="filtraClienti(this.value)">
+    </div>
+</div>
+
+{% if clienti %}
+<div id="listaClienti" class="row g-2">
+    {% for cliente in clienti %}
+    <div class="col-12 cliente-row" data-nome="{{ cliente.nome | lower }}">
+        <div class="table-card p-0" style="border-radius:12px;overflow:hidden;">
+            <div class="d-flex align-items-center gap-3 px-4 py-3">
+                <!-- Icona cartella -->
+                <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+                            display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-folder2-open" style="color:#fff;font-size:1rem;"></i>
+                </div>
+                <!-- Info cliente -->
+                <div class="flex-grow-1 min-w-0">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="fw-700" style="font-size:.95rem;color:#0f172a;">{{ cliente.nome }}</span>
+                        {% if cliente.numero %}
+                        <span class="badge" style="background:#1e40af;font-size:.72rem;font-weight:800;border-radius:6px;letter-spacing:.3px;">
+                            C{{ '%03d'|format(cliente.numero) }}
+                        </span>
+                        {% endif %}
+                        {% if cliente.cig or cliente.cup %}
+                        <span class="badge bg-warning text-dark" style="font-size:.68rem;font-weight:700;border-radius:6px;">Pubblico</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-3 flex-wrap" style="font-size:.75rem;color:#64748b;margin-top:2px;">
+                        {% if cliente.owner %}
+                        <span><i class="bi bi-person-badge me-1"></i>{{ cliente.owner }}</span>
+                        {% endif %}
+                        {% if cliente.partita_iva %}
+                        <span><i class="bi bi-building me-1"></i>{{ cliente.partita_iva }}</span>
+                        {% endif %}
+                        <span><i class="bi bi-layers me-1"></i>{{ cliente.commesse|length }} commess{{ 'a' if cliente.commesse|length == 1 else 'e' }}</span>
+                        <span class="text-muted">{{ cliente.creato_il.strftime('%d/%m/%Y') }}</span>
+                    </div>
+                </div>
+                <!-- Azioni -->
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                    <a href="{{ url_for('tecnico.lista_commesse', cliente_id=cliente.id) }}"
+                       class="btn btn-sm btn-primary">
+                        <i class="bi bi-folder2-open me-1"></i>Apri
+                    </a>
+                    <a href="{{ url_for('tecnico.ordini_lista', cliente_id=cliente.id) }}"
+                       class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-file-earmark-text me-1"></i>Ordini
+                    </a>
+                    <form method="POST" action="{{ url_for('tecnico.elimina_cliente', cliente_id=cliente.id) }}"
+                          onsubmit="return confirm('Eliminare il cliente {{ cliente.nome }} e tutti i suoi dati?')">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% if cliente.commesse %}
+            <div class="px-4 pb-3 d-flex gap-2 flex-wrap" style="margin-top:-6px;">
+                {% for c in cliente.commesse %}
+                <a href="{{ url_for('tecnico.commessa_detail', commessa_id=c.id) }}"
+                   style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;border:1px solid #e2e8f0;
+                          border-radius:8px;padding:3px 10px;font-size:.75rem;font-weight:700;color:#374151;
+                          text-decoration:none;transition:background .15s;"
+                   onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#f1f5f9'">
+                    <span style="background:#3b82f6;color:#fff;border-radius:5px;padding:0 5px;font-size:.68rem;">
+                        {{ c.codice }}
+                    </span>
+                    {{ c.nome }}
+                    {% if c.luogo %}<span class="text-muted fw-400">· {{ c.luogo }}</span>{% endif %}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-folder-plus"></i>
+    <h4>Nessun cliente</h4>
+    <p class="text-muted">Clicca su "Nuovo Cliente" per aggiungere il primo cantiere.</p>
+</div>
+{% endif %}
+
+<!-- Modal Nuovo Cliente -->
+<div class="modal fade" id="modalNuovoCliente" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-700"><i class="bi bi-folder-plus me-2 text-primary"></i>Nuovo Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('tecnico.nuovo_cliente') }}">
+                <div class="modal-body pt-3">
+
+                    <!-- ── Dati cliente ── -->
+                    <div class="p-3 mb-3" style="background:#f0f9ff;border-radius:10px;border:1px solid #bae6fd;">
+                        <div class="fw-700 mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.4px;color:#0369a1;">
+                            <i class="bi bi-building me-1"></i>Dati Cliente
+                        </div>
+                        <label class="form-label fw-700">Nome Cliente <span class="text-danger">*</span></label>
+                        <input type="text" name="nome" class="form-control mb-3"
+                               placeholder="Es. Rossi Costruzioni srl" required autofocus>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-700">Partita IVA
+                                    <span class="text-muted fw-400" style="font-size:.75rem;">(opz.)</span>
+                                </label>
+                                <input type="text" name="partita_iva" class="form-control"
+                                       placeholder="IT01234567890" maxlength="20">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-700">Tipo cliente</label>
+                                <div class="form-control bg-light text-muted" style="font-size:.82rem;padding:.5rem .75rem;">
+                                    Privato se no CIG/CUP
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CIG e CUP (enti pubblici) -->
+                        <div class="p-2 mb-1" style="background:#fffbeb;border-radius:8px;border:1px solid #fde68a;">
+                            <div style="font-size:.73rem;font-weight:700;color:#92400e;margin-bottom:6px;">
+                                <i class="bi bi-bank me-1"></i>Solo per enti pubblici (lascia vuoti se privato)
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label fw-700 mb-1" style="font-size:.78rem;">CIG</label>
+                                    <input type="text" name="cig" class="form-control form-control-sm"
+                                           placeholder="Es. Z1A2B3C4D5" maxlength="100">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-700 mb-1" style="font-size:.78rem;">CUP</label>
+                                    <input type="text" name="cup" class="form-control form-control-sm"
+                                           placeholder="Es. B17H21000990001" maxlength="100">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Prima commessa ── -->
+                    <div class="p-3" style="background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;">
+                        <div class="fw-700 mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.4px;color:#15803d;">
+                            <i class="bi bi-layers me-1"></i>Prima Commessa
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-8">
+                                <label class="form-label fw-700">Nome Commessa <span class="text-danger">*</span></label>
+                                <input type="text" name="commessa_nome" class="form-control"
+                                       placeholder="Es. Ristrutturazione piano terra" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label fw-700">N° Commessa</label>
+                                <input type="number" name="commessa_numero" class="form-control"
+                                       value="1" min="1" placeholder="1">
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-700">Luogo</label>
+                                <input type="text" name="commessa_luogo" class="form-control" placeholder="Es. Milano">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-700">Via / Indirizzo</label>
+                                <input type="text" name="commessa_via" class="form-control" placeholder="Es. Via Roma 12">
+                            </div>
+                        </div>
+
+                        <label class="form-label fw-700">Responsabile Commessa</label>
+                        <select name="owner" class="form-select">
+                            <option value="">— nessun responsabile —</option>
+                            {% for r in responsabili %}
+                            <option value="{{ r.nome }}">{{ r.nome }}{% if r.posizione %} – {{ r.posizione }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>Crea Cliente e Commessa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function filtraClienti(q) {
+    q = q.toLowerCase().trim();
+    document.querySelectorAll('.cliente-row').forEach(r => {
+        r.style.display = (!q || r.dataset.nome.includes(q)) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

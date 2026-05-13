@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}Nuovo Ordine – {{ cliente.nome }}{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center gap-3">
+    <a href="{{ url_for('tecnico.ordini_lista', cliente_id=cliente.id) }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h1>Nuovo Ordine</h1>
+        <p class="mb-0"><span class="text-muted">Cliente:</span> <strong>{{ cliente.nome }}</strong></p>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('tecnico.ordine_nuovo', cliente_id=cliente.id) }}">
+    {% if commessa_pre %}
+    <input type="hidden" name="commessa_id_pre" value="{{ commessa_pre.id }}">
+    {% endif %}
+
+    <!-- Dati intestazione -->
+    <div class="table-card p-4 mb-4">
+        <h5 class="fw-700 mb-4"><i class="bi bi-building me-2 text-primary"></i>Dati Ordine</h5>
+        <div class="row g-3">
+            <!-- Commessa collegata -->
+            <div class="col-md-6">
+                <label class="form-label fw-700">Commessa collegata
+                    <span class="text-muted fw-400" style="font-size:.78rem;">(genera identificativo automatico)</span>
+                </label>
+                <select name="commessa_id" class="form-select" id="selCommessa" onchange="aggiornaId()">
+                    <option value="">— nessuna commessa —</option>
+                    {% for c in commesse_cliente %}
+                    <option value="{{ c.id }}" data-num="{{ c.numero }}"
+                        {% if commessa_pre and c.id == commessa_pre.id %}selected{% endif %}>
+                        {{ c.codice }} – {{ c.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-700">Identificativo ordine</label>
+                {% set num_cl = cliente.numero or cliente.id %}
+                {% if commessa_pre %}
+                    {% set id_auto = 'C%03d-%s'|format(num_cl, commessa_pre.numero) %}
+                {% else %}
+                    {% set id_auto = '' %}
+                {% endif %}
+                <input type="text" id="campoId" class="form-control"
+                       value="{{ id_auto }}" readonly
+                       style="background:#f0f9ff;font-weight:700;color:#1e40af;"
+                       placeholder="Auto-generato">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Azienda</label>
+                <input type="text" name="azienda" class="form-control" placeholder="Ragione sociale"
+                       value="{{ cliente.nome }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">P.IVA</label>
+                <input type="text" name="piva" class="form-control" placeholder="IT00000000000"
+                       value="{{ cliente.partita_iva or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">RIF Ordine</label>
+                <input type="text" name="rif_ordine" class="form-control" id="campoRif"
+                       placeholder="Auto da identificativo" value="{{ id_auto }}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Dati Cantiere</label>
+                <input type="text" name="dati_cantiere" class="form-control" placeholder="Descrizione cantiere">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Indirizzo</label>
+                <input type="text" name="indirizzo" class="form-control" placeholder="Via, Città">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">RIF Cantiere</label>
+                <input type="text" name="rif_cantiere" class="form-control" placeholder="Es. C-001">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Note</label>
+                <textarea name="note" class="form-control" rows="2" placeholder="Note aggiuntive..."></textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">CIG
+                    <span class="text-muted fw-400" style="font-size:.78rem;">(Codice Identificativo Gara — ente pubblico)</span>
+                </label>
+                <input type="text" name="cig" class="form-control" placeholder="Es. Z1A2B3C4D5"
+                       value="{{ commessa_pre.cliente.cig or '' if commessa_pre else '' }}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">CUP
+                    <span class="text-muted fw-400" style="font-size:.78rem;">(Codice Unico Progetto — ente pubblico)</span>
+                </label>
+                <input type="text" name="cup" class="form-control" placeholder="Es. F17H18000200007"
+                       value="{{ commessa_pre.cliente.cup or '' if commessa_pre else '' }}">
+            </div>
+        </div>
+    </div>
+
+    <!-- Righe ordine -->
+    <div class="table-card mb-4">
+        <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-700 mb-0"><i class="bi bi-list-ol me-2 text-primary"></i>Voci dell'Ordine</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="aggiungiRiga()">
+                <i class="bi bi-plus-lg me-1"></i>Aggiungi riga
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="table mb-0" id="tabellaRighe">
+                <thead>
+                    <tr>
+                        <th style="width:45px">N.</th>
+                        <th>Descrizione</th>
+                        <th style="width:90px">Qtà</th>
+                        <th style="width:110px">U.M.</th>
+                        <th style="width:130px">Prezzo Unit.</th>
+                        <th style="width:130px" class="text-end">Totale</th>
+                        <th style="width:40px"></th>
+                    </tr>
+                </thead>
+                <tbody id="corpoRighe">
+                    <!-- righe dinamiche -->
+                </tbody>
+            </table>
+        </div>
+        <div class="p-3 border-top d-flex justify-content-end align-items-center gap-3" style="background:#f8fafc;">
+            <span class="text-muted fw-600">Totale ordine:</span>
+            <span id="totaleGenerale" class="fw-800 fs-5 text-primary">€ 0,00</span>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="text-muted small">
+            <i class="bi bi-info-circle me-1"></i>
+            Ordini superiori a <strong>€ {{ '%.2f'|format(soglia) }}</strong> richiedono approvazione Owner.
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('tecnico.ordini_lista', cliente_id=cliente.id) }}" class="btn btn-secondary">Annulla</a>
+            <button type="submit" class="btn btn-success px-4">
+                <i class="bi bi-send me-1"></i>Salva Ordine
+            </button>
+        </div>
+    </div>
+</form>
+
+<script>
+const numCliente = {{ cliente.numero or cliente.id }};
+
+function aggiornaId() {
+    const sel = document.getElementById('selCommessa');
+    const opt = sel.options[sel.selectedIndex];
+    let idVal = '';
+    if (opt && opt.value) {
+        const numComm = opt.getAttribute('data-num');
+        idVal = 'C' + String(numCliente).padStart(3, '0') + '-' + numComm;
+    }
+    document.getElementById('campoId').value = idVal;
+    document.getElementById('campoRif').value = idVal;
+}
+
+let contatore = 0;
+
+function aggiungiRiga() {
+    contatore++;
+    const tbody = document.getElementById('corpoRighe');
+    const tr = document.createElement('tr');
+    tr.id = 'riga-' + contatore;
+    tr.innerHTML = `
+        <td class="text-muted fw-600">${contatore}</td>
+        <td><input type="text" name="descrizione[]" class="form-control form-control-sm" placeholder="Descrizione voce" required></td>
+        <td><input type="number" name="qta[]" class="form-control form-control-sm riga-qta" step="0.01" min="0" value="1" oninput="ricalcola(this)"></td>
+        <td><input type="text" name="um[]" class="form-control form-control-sm" placeholder="m², kg, pz…"></td>
+        <td><input type="number" name="prezzo_unitario[]" class="form-control form-control-sm riga-prezzo" step="0.01" min="0" value="0" oninput="ricalcola(this)"></td>
+        <td class="text-end"><span class="riga-totale fw-700">€ 0,00</span></td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="rimuoviRiga(${contatore})">
+                <i class="bi bi-x"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelector('input[name="descrizione[]"]').focus();
+    aggiornaNumeri();
+}
+
+function rimuoviRiga(id) {
+    const tr = document.getElementById('riga-' + id);
+    if (tr) tr.remove();
+    aggiornaNumeri();
+    aggiornaTotaleGenerale();
+}
+
+function aggiornaNumeri() {
+    const righe = document.querySelectorAll('#corpoRighe tr');
+    righe.forEach((tr, i) => {
+        tr.querySelector('td:first-child').textContent = i + 1;
+    });
+}
+
+function ricalcola(input) {
+    const tr = input.closest('tr');
+    const qta = parseFloat(tr.querySelector('.riga-qta').value) || 0;
+    const prezzo = parseFloat(tr.querySelector('.riga-prezzo').value) || 0;
+    const tot = qta * prezzo;
+    tr.querySelector('.riga-totale').textContent = '€ ' + tot.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
+    aggiornaTotaleGenerale();
+}
+
+function aggiornaTotaleGenerale() {
+    let tot = 0;
+    document.querySelectorAll('#corpoRighe tr').forEach(tr => {
+        const qta = parseFloat(tr.querySelector('.riga-qta')?.value) || 0;
+        const prezzo = parseFloat(tr.querySelector('.riga-prezzo')?.value) || 0;
+        tot += qta * prezzo;
+    });
+    const el = document.getElementById('totaleGenerale');
+    el.textContent = '€ ' + tot.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const soglia = {{ soglia }};
+    el.style.color = tot > soglia ? '#ef4444' : 'var(--accent)';
+}
+
+// Prima riga automatica
+aggiungiRiga();
+</script>
+{% endblock %}

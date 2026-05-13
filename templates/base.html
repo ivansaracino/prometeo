@@ -18,7 +18,7 @@
 <div class="sidebar-nav">
 
     <!-- Brand -->
-    <a class="navbar-brand" href="{{ url_for('index') }}">
+    <a class="navbar-brand" href="{{ url_for('auth.index') }}">
         <div class="d-flex align-items-center gap-2">
             <span style="font-size:1.35rem;line-height:1;">🔥</span>
             <div>
@@ -35,80 +35,80 @@
     <ul class="sidebar-menu nav flex-column">
         {% if 'tecnico' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'tecnico' %}active{% endif %}"
-               href="{{ url_for('tecnico') }}">
+            <a class="nav-link {% if request.endpoint == 'tecnico.tecnico' %}active{% endif %}"
+               href="{{ url_for('tecnico.tecnico') }}">
                 <i class="bi bi-tools me-2"></i>Tecnico
             </a>
         </li>
         {% endif %}
         {% if 'amministrazione' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'amministrazione' %}active{% endif %}"
-               href="{{ url_for('amministrazione') }}">
+            <a class="nav-link {% if request.endpoint == 'amministrazione.amministrazione' %}active{% endif %}"
+               href="{{ url_for('amministrazione.amministrazione') }}">
                 <i class="bi bi-receipt me-2"></i>Amministrazione
             </a>
         </li>
         {% endif %}
         {% if 'banca' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'banca' %}active{% endif %}"
-               href="{{ url_for('banca') }}">
+            <a class="nav-link {% if request.endpoint == 'banca.banca' %}active{% endif %}"
+               href="{{ url_for('banca.banca') }}">
                 <i class="bi bi-bank me-2"></i>Banca
             </a>
         </li>
         {% endif %}
         {% if 'risorse_umane' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'risorse_umane' %}active{% endif %}"
-               href="{{ url_for('risorse_umane') }}">
+            <a class="nav-link {% if request.endpoint == 'risorse_umane.risorse_umane' %}active{% endif %}"
+               href="{{ url_for('risorse_umane.risorse_umane') }}">
                 <i class="bi bi-people me-2"></i>Risorse Umane
             </a>
         </li>
         {% endif %}
         {% if 'owner' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint in ['owner','owner_ordini','owner_organigramma'] %}active{% endif %}"
-               href="{{ url_for('owner') }}">
+            <a class="nav-link {% if request.endpoint in ['owner.owner','owner.owner_ordini','owner.owner_organigramma'] %}active{% endif %}"
+               href="{{ url_for('owner.owner') }}">
                 <i class="bi bi-people me-2"></i>Responsabili
             </a>
         </li>
         {% endif %}
         {% if 'fornitori' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint in ['fornitori_lista','fornitore_nuovo','fornitore_modifica'] %}active{% endif %}"
-               href="{{ url_for('fornitori_lista') }}">
+            <a class="nav-link {% if request.endpoint in ['fornitori.fornitori_lista','fornitori.fornitore_nuovo','fornitori.fornitore_modifica'] %}active{% endif %}"
+               href="{{ url_for('fornitori.fornitori_lista') }}">
                 <i class="bi bi-truck me-2"></i>Fornitori
             </a>
         </li>
         {% endif %}
         {% if 'match_archivi' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint in ['match_archivi','match_archivi_ddt'] %}active{% endif %}"
-               href="{{ url_for('match_archivi') }}">
+            <a class="nav-link {% if request.endpoint in ['match_archivi.match_archivi','match_archivi.match_archivi_ddt'] %}active{% endif %}"
+               href="{{ url_for('match_archivi.match_archivi') }}">
                 <i class="bi bi-archive me-2"></i>Match e Archivi
             </a>
         </li>
         {% endif %}
         {% if 'tesoreria' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'tesoreria' %}active{% endif %}"
-               href="{{ url_for('tesoreria') }}">
+            <a class="nav-link {% if request.endpoint == 'tesoreria.tesoreria' %}active{% endif %}"
+               href="{{ url_for('tesoreria.tesoreria') }}">
                 <i class="bi bi-safe2-fill me-2"></i>Tesoreria
             </a>
         </li>
         {% endif %}
         {% if 'kpi' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'kpi_dashboard' %}active{% endif %}"
-               href="{{ url_for('kpi_dashboard') }}">
+            <a class="nav-link {% if request.endpoint == 'tecnico.kpi_dashboard' %}active{% endif %}"
+               href="{{ url_for('tecnico.kpi_dashboard') }}">
                 <i class="bi bi-bar-chart-line-fill me-2"></i>KPI
             </a>
         </li>
         {% endif %}
          {% if 'admin_utenti' in sezioni %}
         <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'admin_utenti' %}active{% endif %}"
-               href="{{ url_for('admin_utenti') }}">
+            <a class="nav-link {% if request.endpoint == 'admin.admin_utenti' %}active{% endif %}"
+               href="{{ url_for('admin.admin_utenti') }}">
                 <i class="bi bi-person-gear me-2"></i>Gestione Utenti
             </a>
         </li>
@@ -124,7 +124,7 @@
         <span class="text-muted d-block mb-2" style="font-size:.75rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
             {{ current_user.email }}
         </span>
-        <a href="{{ url_for('logout') }}" class="btn-logout-nav btn btn-sm w-100">
+        <a href="{{ url_for('auth.logout') }}" class="btn-logout-nav btn btn-sm w-100">
             <i class="bi bi-box-arrow-right me-1"></i>Esci
         </a>
     </div>

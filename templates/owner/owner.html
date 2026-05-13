@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}Responsabili – Gestionale{% endblock %}
+{% block content %}
+<div class="page-header d-flex align-items-center gap-3">
+    <div class="info-card card-icon icon-red" style="margin:0; padding:12px; width:48px; height:48px; font-size:1.3rem; border-radius:12px;">
+        <i class="bi bi-shield-star"></i>
+    </div>
+    <div>
+        <h1>Pannello Responsabili</h1>
+        <p>Visione d'insieme, approvazioni e configurazione aziendale</p>
+    </div>
+</div>
+
+<!-- Ordini in attesa -->
+{% if ordini_in_attesa > 0 %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <i class="bi bi-hourglass-split me-2"></i>
+        <strong>{{ ordini_in_attesa }} ordine{% if ordini_in_attesa > 1 %}i{% endif %} in attesa</strong> di approvazione.
+    </div>
+    <a href="{{ url_for('owner.owner_ordini') }}" class="btn btn-warning btn-sm fw-600">
+        <i class="bi bi-arrow-right me-1"></i>Gestisci ora
+    </a>
+</div>
+{% endif %}
+
+{% if n_bolle_da_approvare and n_bolle_da_approvare > 0 %}
+<div class="alert alert-info d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <i class="bi bi-truck me-2"></i>
+        <strong>{{ n_bolle_da_approvare }} boll{% if n_bolle_da_approvare > 1 %}e{% else %}a{% endif %} in attesa</strong>
+        di approvazione tecnico.
+    </div>
+    <a href="{{ url_for('tecnico.ddt_da_approvare') }}" class="btn btn-info btn-sm fw-600 text-white">
+        <i class="bi bi-clipboard-check me-1"></i>Revisiona ora
+    </a>
+</div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <a href="{{ url_for('owner.owner_ordini') }}" class="text-decoration-none">
+            <div class="info-card {% if ordini_in_attesa > 0 %}border-warning{% endif %}">
+                <div class="card-icon icon-orange"><i class="bi bi-hourglass-split"></i></div>
+                <div class="stat-number {% if ordini_in_attesa > 0 %}text-warning{% endif %}">{{ ordini_in_attesa }}</div>
+                <div class="stat-label">Ordini in Attesa</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <a href="{{ url_for('owner.owner_organigramma') }}" class="text-decoration-none">
+            <div class="info-card {% if nodi_count > 0 %}border-success{% else %}border-secondary{% endif %}">
+                <div class="card-icon icon-green"><i class="bi bi-diagram-3-fill"></i></div>
+                <div class="stat-number">{{ nodi_count }}</div>
+                <div class="stat-label">Nodi Organigramma</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card">
+            <div class="card-icon icon-blue"><i class="bi bi-people"></i></div>
+            <div class="stat-number">—</div>
+            <div class="stat-label">Dipendenti Totali</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card">
+            <div class="card-icon icon-purple"><i class="bi bi-funnel-fill"></i></div>
+            <div class="stat-number">€ {{ '%.0f'|format(soglia_corrente) }}</div>
+            <div class="stat-label">Soglia Approvazione</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="info-card" style="height:100%">
+            <h5 class="fw-700 mb-3">Accessi per Ruolo</h5>
+            {% set roles = [
+                ('Direzione', 'Tutte le sezioni', 'icon-red', 'bi-shield-star'),
+                ('Amministrativo', 'Amministrazione, Banca, R.U.', 'icon-orange', 'bi-receipt'),
+                ('Risorse Umane', 'Risorse Umane', 'icon-purple', 'bi-people'),
+                ('Tecnico', 'Clienti, Costi Fornitori, Ordini', 'icon-blue', 'bi-tools'),
+            ] %}
+            {% for ruolo, sez, cls, icon in roles %}
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="card-icon {{ cls }}" style="width:40px;height:40px;border-radius:10px;font-size:1rem;flex-shrink:0">
+                    <i class="bi {{ icon }}"></i>
+                </div>
+                <div>
+                    <div class="fw-600" style="font-size:.9rem">{{ ruolo }}</div>
+                    <div class="text-muted" style="font-size:.8rem">{{ sez }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="table-card h-100">
+            <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-700">Azioni rapide</h5>
+            </div>
+            <div class="p-4 d-flex flex-column gap-3">
+                <a href="{{ url_for('owner.owner_ordini') }}" class="btn btn-outline-warning">
+                    <i class="bi bi-hourglass-split me-2"></i>Ordini in attesa di approvazione
+                    {% if ordini_in_attesa > 0 %}
+                    <span class="badge bg-warning text-dark ms-2">{{ ordini_in_attesa }}</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_for('owner.owner_organigramma') }}" class="btn btn-outline-success">
+                    <i class="bi bi-diagram-3-fill me-2"></i>Organigramma aziendale
+                    {% if nodi_count == 0 %}
+                    <span class="badge bg-secondary ms-2">da configurare</span>
+                    {% else %}
+                    <span class="badge bg-success ms-2">{{ nodi_count }} nodi</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_for('admin.admin_utenti') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-person-gear me-2"></i>Gestione Utenti
+                </a>
+                <a href="{{ url_for('tecnico.tecnico') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-tools me-2"></i>Area Tecnica – Clienti
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

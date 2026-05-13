@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richiesta Inviata</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 32px 20px;
+            background: linear-gradient(160deg, #1e1b4b 0%, #4338ca 100%);
+        }
+        .ok-card {
+            background: #fff; border-radius: 28px;
+            padding: 44px 32px; width: 100%; max-width: 400px;
+            text-align: center; box-shadow: 0 24px 80px rgba(0,0,0,.35);
+            animation: popIn .5s cubic-bezier(.22,.61,.36,1);
+        }
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(.85) translateY(20px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .ok-icon {
+            width: 90px; height: 90px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.8rem; margin: 0 auto 24px;
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            animation: bounceIn .6s .2s both;
+        }
+        .ok-icon i { color: #fff; }
+        @keyframes bounceIn {
+            0%   { transform: scale(0); opacity: 0; }
+            60%  { transform: scale(1.15); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .ok-title { font-size: 1.7rem; font-weight: 900; color: #0f172a; margin-bottom: 6px; }
+        .ok-sub   { font-size: .92rem; color: #64748b; font-weight: 600; margin-bottom: 28px; }
+        .ok-detail {
+            background: #f0fdf4; border-radius: 16px; padding: 18px 20px;
+            margin-bottom: 24px; text-align: left;
+        }
+        .ok-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 7px 0; border-bottom: 1px solid rgba(0,0,0,.06);
+        }
+        .ok-row:last-child { border-bottom: none; }
+        .ok-row .lbl { font-size: .8rem; font-weight: 700; color: #64748b; }
+        .ok-row .val { font-size: .88rem; font-weight: 800; color: #0f172a; }
+        .pending-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #fef3c7; border: 1.5px solid #fcd34d;
+            border-radius: 20px; padding: 6px 14px; margin-bottom: 20px;
+            font-size: .82rem; font-weight: 700; color: #92400e;
+        }
+        .btn-altro {
+            display: block; width: 100%; padding: 15px;
+            border: none; border-radius: 16px;
+            font-size: 1rem; font-weight: 800; color: #fff; cursor: pointer;
+            text-decoration: none;
+            background: linear-gradient(135deg, #4338ca, #6366f1);
+            box-shadow: 0 4px 18px rgba(99,102,241,.4);
+            transition: all .22s;
+        }
+        .btn-altro:hover { transform: translateY(-2px); color: #fff; }
+        .ok-note { font-size: .72rem; color: #94a3b8; margin-top: 14px; }
+    </style>
+</head>
+<body>
+<div class="ok-card">
+    <div class="ok-icon"><i class="bi bi-send-check-fill"></i></div>
+    <div class="ok-title">Richiesta inviata!</div>
+    <div class="ok-sub">Le tue ore sono state registrate e inviate al responsabile.</div>
+
+    <div class="pending-badge">
+        <i class="bi bi-hourglass-split"></i>
+        In attesa di approvazione dal responsabile
+    </div>
+
+    <div class="ok-detail">
+        <div class="ok-row">
+            <span class="lbl">Nome</span>
+            <span class="val">{{ nome }}</span>
+        </div>
+        <div class="ok-row">
+            <span class="lbl">Cantiere / Luogo</span>
+            <span class="val">{{ cantiere }}</span>
+        </div>
+        <div class="ok-row">
+            <span class="lbl">Data</span>
+            <span class="val">{{ data.strftime('%d/%m/%Y') }}</span>
+        </div>
+        {% if tot_ore > 0 %}
+        <div class="ok-row">
+            <span class="lbl">Ore registrate</span>
+            <span class="val">{{ '%.1f'|format(tot_ore) }} h</span>
+        </div>
+        {% endif %}
+        {% if tot_km > 0 %}
+        <div class="ok-row">
+            <span class="lbl">Km registrati</span>
+            <span class="val">{{ tot_km|int }} km</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <a href="{{ url_for('operaio.operaio_form') }}" class="btn-altro">
+        <i class="bi bi-plus-circle me-2"></i>Registra un'altra attività
+    </a>
+    <div class="ok-note">
+        <i class="bi bi-shield-check me-1"></i>
+        I dati sono stati salvati. Il responsabile li verificherà a breve.
+    </div>
+</div>
+</body>
+</html>
