@@ -18,12 +18,28 @@ def healthz():
     return 'ok', 200
 
 
+_SEZIONE_ENDPOINT = {
+    'tecnico': 'tecnico.tecnico',
+    'amministrazione': 'amministrazione.amministrazione',
+    'banca': 'banca.banca',
+    'risorse_umane': 'risorse_umane.risorse_umane',
+    'owner': 'owner.owner',
+    'fornitori': 'fornitori.fornitori_lista',
+    'match_archivi': 'match_archivi.match_archivi',
+    'tesoreria': 'tesoreria.tesoreria',
+    'kpi': 'tecnico.kpi_dashboard',
+    'admin_utenti': 'admin.admin_utenti',
+}
+
+
 @bp.route('/')
 def index():
     if current_user.is_authenticated:
         sezioni = current_user.sezioni_accessibili()
-        if sezioni:
-            return redirect(url_for(sezioni[0]))
+        for s in sezioni:
+            endpoint = _SEZIONE_ENDPOINT.get(s)
+            if endpoint:
+                return redirect(url_for(endpoint))
     return redirect(url_for('auth.login'))
 
 
