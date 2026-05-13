@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Ordini in Attesa – Responsabili{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-3">
+        <div class="info-card card-icon icon-orange" style="margin:0;padding:12px;width:48px;height:48px;font-size:1.3rem;border-radius:12px;">
+            <i class="bi bi-hourglass-split"></i>
+        </div>
+        <div>
+            <h1>Ordini in Attesa</h1>
+            <p>Ordini che superano € {{ '%.2f'|format(soglia) }} — richiedono approvazione</p>
+        </div>
+    </div>
+    <a href="{{ url_for('owner') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Owner
+    </a>
+</div>
+
+{% if ordini %}
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Cliente</th>
+                    <th>Azienda</th>
+                    <th>RIF</th>
+                    <th>Data</th>
+                    <th class="text-end">Totale</th>
+                    <th class="text-center">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ordine in ordini %}
+                <tr>
+                    <td><code>ORD-{{ '%04d'|format(ordine.id) }}</code></td>
+                    <td><strong>{{ ordine.cliente.nome }}</strong></td>
+                    <td>{{ ordine.azienda or '—' }}</td>
+                    <td class="text-muted">{{ ordine.rif_ordine or '—' }}</td>
+                    <td class="text-muted small">{{ ordine.creato_il.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-end fw-800 text-danger">€ {{ '%.2f'|format(ordine.totale) }}</td>
+                    <td class="text-center">
+                        <div class="d-flex gap-2 justify-content-center">
+                            <a href="{{ url_for('ordine_dettaglio', ordine_id=ordine.id) }}"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>Vedi
+                            </a>
+                            <form method="POST" action="{{ url_for('approva_ordine', ordine_id=ordine.id) }}">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-lg me-1"></i>Approva
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('rifiuta_ordine', ordine_id=ordine.id) }}"
+                                  onsubmit="return confirm('Rifiutare questo ordine?')">
+                                <button type="submit" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-x-lg me-1"></i>Rifiuta
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-check2-all" style="font-size:3rem;color:var(--success);"></i>
+    <h4>Nessun ordine in attesa</h4>
+    <p class="text-muted">Tutti gli ordini sono stati gestiti.</p>
+</div>
+{% endif %}
+{% endblock %}

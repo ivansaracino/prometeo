@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Registrazione – Gestionale Aziendale{% endblock %}
+{% block content %}
+<div class="auth-card">
+    <div class="auth-logo"><i class="bi bi-person-plus-fill"></i></div>
+    <h2 class="text-center">Crea Account</h2>
+    <p class="subtitle text-center">Compila tutti i campi per registrarti</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">Nome e Cognome <span class="text-danger">*</span></label>
+            <div class="input-icon">
+                <i class="bi bi-person"></i>
+                <input type="text" name="nome" class="form-control" placeholder="Es. Mario Rossi" required>
+            </div>
+            <div class="form-text">Usato come identificativo per l'assegnazione delle commesse.</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Indirizzo Email</label>
+            <div class="input-icon">
+                <i class="bi bi-envelope"></i>
+                <input type="email" name="email" class="form-control" placeholder="nome@azienda.it" required>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Numero di Telefono</label>
+            <div class="input-icon">
+                <i class="bi bi-phone"></i>
+                <input type="tel" name="telefono" class="form-control" placeholder="+39 333 1234567" required>
+            </div>
+            <div class="form-text">Riceverai il codice OTP su questo numero.</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Ruolo Aziendale</label>
+            <select name="ruolo" class="form-select" required>
+                <option value="" disabled selected>Seleziona il tuo ruolo…</option>
+                {% for ruolo in ruoli %}
+                <option value="{{ ruolo }}">{{ ruolo }}</option>
+                {% endfor %}
+            </select>
+            <div class="form-text">Il ruolo determina le sezioni che potrai visualizzare.</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Password</label>
+            <div class="input-icon">
+                <i class="bi bi-lock"></i>
+                <input type="password" name="password" class="form-control" placeholder="Min. 8 caratteri" required minlength="8">
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Conferma Password</label>
+            <div class="input-icon">
+                <i class="bi bi-lock-fill"></i>
+                <input type="password" name="conferma_password" class="form-control" placeholder="Ripeti la password" required>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary-custom">
+            <i class="bi bi-person-check me-2"></i>Registrati
+        </button>
+    </form>
+
+    <p class="text-center mt-4 mb-0" style="font-size:.88rem; color:var(--text-muted)">
+        Hai già un account?
+        <a href="{{ url_for('login') }}" style="color:var(--accent); font-weight:600; text-decoration:none">Accedi</a>
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Ordini – {{ cliente.nome }}{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('tecnico') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Ordini</h1>
+            <p class="mb-0">
+                <span class="text-muted">Cliente:</span>
+                <strong>{{ cliente.nome }}</strong>
+            </p>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('costi_fornitori', cliente_id=cliente.id) }}" class="btn btn-outline-primary">
+            <i class="bi bi-cash-stack me-1"></i>Costi Fornitori
+        </a>
+        <a href="{{ url_for('ordine_nuovo', cliente_id=cliente.id) }}" class="btn btn-success">
+            <i class="bi bi-plus-lg me-1"></i>Nuovo Ordine
+        </a>
+    </div>
+</div>
+
+{% if ordini %}
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Azienda</th>
+                    <th>RIF</th>
+                    <th>Data</th>
+                    <th class="text-end">Totale</th>
+                    <th class="text-center">Stato</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ordine in ordini %}
+                <tr>
+                    <td><code>ORD-{{ '%04d'|format(ordine.id) }}</code></td>
+                    <td>{{ ordine.azienda or '—' }}</td>
+                    <td class="text-muted">{{ ordine.rif_ordine or '—' }}</td>
+                    <td class="text-muted small">{{ ordine.creato_il.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-end fw-700">
+                        € {{ '%.2f'|format(ordine.totale) }}
+                        {% if ordine.totale > soglia %}
+                        <i class="bi bi-exclamation-triangle text-warning ms-1" title="Supera soglia approvazione"></i>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if ordine.stato == 'approvato' %}
+                            <span class="status status-ok"><i class="bi bi-check-circle-fill"></i> Approvato</span>
+                        {% elif ordine.stato == 'in_attesa' %}
+                            <span class="status status-pending"><i class="bi bi-hourglass-split"></i> In attesa</span>
+                        {% elif ordine.stato == 'rifiutato' %}
+                            <span class="status status-danger"><i class="bi bi-x-circle-fill"></i> Rifiutato</span>
+                        {% else %}
+                            <span class="status" style="background:#f1f5f9;color:#64748b;">Bozza</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('ordine_dettaglio', ordine_id=ordine.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-file-earmark-plus"></i>
+    <h4>Nessun ordine</h4>
+    <p class="text-muted">Clicca su "Nuovo Ordine" per creare il primo ordine per questo cliente.</p>
+    <a href="{{ url_for('ordine_nuovo', cliente_id=cliente.id) }}" class="btn btn-success mt-2">
+        <i class="bi bi-plus-lg me-1"></i>Nuovo Ordine
+    </a>
+</div>
+{% endif %}
+{% endblock %}

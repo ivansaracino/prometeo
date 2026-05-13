@@ -1,0 +1,1100 @@
+{% extends 'base.html' %}
+{% block title %}Amministrazione – Gestionale
+<!-- ── Archivio Abbinamenti DDT ↔ Fatture (inline) ─────────────────────── -->
+<div class="table-card mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0"><i class="bi bi-box-seam me-2 text-info"></i>Archivio Abbinamenti DDT ↔ Fatture Materiali</h5>
+        <a href="{{ url_for('archivio_abbinamenti_ddt') }}" class="btn btn-sm btn-outline-info">
+            <i class="bi bi-eye me-1"></i>Vedi tutto
+        </a>
+    </div>
+    <p class="text-muted small mb-0">
+        Ogni DDT approvato viene abbinato automaticamente alla fattura passiva materiali per P.IVA fornitore + commessa.<br>
+        <a href="{{ url_for('archivio_abbinamenti_ddt') }}" class="text-info">Apri archivio completo →</a>
+    </p>
+</div>
+
+<!-- ── Archivio Abbinamenti Ordini ↔ Subappalti (inline) ────────────────── -->
+<div class="table-card mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0"><i class="bi bi-diagram-3 me-2 text-warning"></i>Archivio Abbinamenti Ordini ↔ Fatture Subappalto</h5>
+        <a href="{{ url_for('archivio_abbinamenti_subappalti') }}" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-eye me-1"></i>Vedi tutto
+        </a>
+    </div>
+    <p class="text-muted small mb-0">
+        Le fatture passive subappalto vengono abbinate agli ordini per commessa. Se l'importo supera l'ordine la fattura viene <strong>bloccata automaticamente</strong>.<br>
+        <a href="{{ url_for('archivio_abbinamenti_subappalti') }}" class="text-warning">Apri archivio completo →</a>
+    </p>
+</div>
+
+{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="info-card card-icon icon-orange" style="margin:0;padding:12px;width:48px;height:48px;font-size:1.25rem;border-radius:12px;flex-shrink:0;">
+            <i class="bi bi-receipt"></i>
+        </div>
+        <div>
+            <h1>Amministrazione</h1>
+            <p class="mb-0">Carica e gestisci fatture attive e passive</p>
+        </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('ddt_lista') }}" class="btn btn-outline-info position-relative">
+            <i class="bi bi-truck me-1"></i>Gestione DDT
+        </a>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAttive">
+            <i class="bi bi-arrow-down-circle me-1"></i>Fatture Attive
+        </button>
+        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalPassive">
+            <i class="bi bi-arrow-up-circle me-1"></i>Fatture Passive
+        </button>
+    </div>
+</div>
+
+<!-- ── Riepilogo ───────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card anim-card anim-delay-1">
+            <div class="card-icon icon-green"><i class="bi bi-arrow-down-circle"></i></div>
+            <div class="stat-number">€ {{ '%.0f'|format(tot_attive) }}</div>
+            <div class="stat-label">Tot. Fatture Attive</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card anim-card anim-delay-2">
+            <div class="card-icon icon-orange"><i class="bi bi-clock-history"></i></div>
+            <div class="stat-number">€ {{ '%.0f'|format(tot_attive_np) }}</div>
+            <div class="stat-label">Attive Non Pagate</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card anim-card anim-delay-3">
+            <div class="card-icon icon-red"><i class="bi bi-arrow-up-circle"></i></div>
+            <div class="stat-number">€ {{ '%.0f'|format(tot_passive) }}</div>
+            <div class="stat-label">Tot. Fatture Passive</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card anim-card anim-delay-4">
+            <div class="card-icon icon-purple"><i class="bi bi-hourglass-split"></i></div>
+            <div class="stat-number">€ {{ '%.0f'|format(tot_passive_np) }}</div>
+            <div class="stat-label">Passive Non Pagate</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Fatture Attive ──────────────────────────── -->
+<div class="table-card mb-4">
+    <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-arrow-down-circle text-success fs-5"></i>
+        <h5 class="mb-0 fw-700" style="font-size:.95rem;">Fatture Attive</h5>
+        <span class="badge bg-success ms-auto">{{ fatture_attive|length }}</span>
+    </div>
+    {% if fatture_attive %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Numero</th><th>Cliente</th><th>Emissione</th>
+                    <th>Scadenza</th><th class="text-end">Importo</th>
+                    <th class="text-center">Stato</th><th>File</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in fatture_attive %}
+                {% set scaduta = f.data_scadenza and f.data_scadenza < oggi and not f.pagata %}
+                <tr class="{% if scaduta %}table-danger{% endif %}">
+                    <td><strong>{{ f.numero or '—' }}</strong></td>
+                    <td>{{ f.cliente_fornitore or '—' }}</td>
+                    <td class="text-muted small">{{ f.data_emissione.strftime('%d/%m/%Y') if f.data_emissione else '—' }}</td>
+                    <td class="{% if scaduta %}text-danger fw-700{% else %}text-muted{% endif %} small">
+                        {{ f.data_scadenza.strftime('%d/%m/%Y') if f.data_scadenza else '—' }}
+                        {% if scaduta %}<i class="bi bi-exclamation-triangle ms-1"></i>{% endif %}
+                    </td>
+                    <td class="text-end fw-700">€ {{ '%.2f'|format(f.importo) }}</td>
+                    <td class="text-center">
+                        {% if f.pagata %}
+                            <span class="status status-ok"><i class="bi bi-check-circle-fill"></i> Pagata</span>
+                        {% else %}
+                            <span class="status status-pending">Non pagata</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if f.file_path %}
+                        <a href="{{ url_for('serve_upload', filepath=f.file_path) }}" target="_blank"
+                           class="btn btn-sm btn-outline-secondary" title="Scarica">
+                            <i class="bi bi-file-earmark-arrow-down"></i>
+                        </a>
+                        {% else %}<span class="text-muted small">—</span>{% endif %}
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('elimina_fattura', fattura_id=f.id) }}"
+                              onsubmit="return confirm('Eliminare questa fattura?')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state py-4">
+        <i class="bi bi-inbox" style="font-size:2rem;color:var(--border);"></i>
+        <p class="text-muted mt-2 mb-0">Nessuna fattura attiva.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Fatture Passive ─────────────────────────── -->
+<div class="table-card mb-4">
+    <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-arrow-up-circle text-danger fs-5"></i>
+        <h5 class="mb-0 fw-700" style="font-size:.95rem;">Fatture Passive</h5>
+        <span class="badge bg-danger ms-auto">{{ fatture_passive|length }}</span>
+    </div>
+    {% if fatture_passive %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Numero</th><th>Fornitore</th><th>Tipo</th>
+                    <th>Scadenza</th><th class="text-end">Importo</th>
+                    <th class="text-center">Stato</th><th>File</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in fatture_passive %}
+                {% set scaduta = f.data_scadenza and f.data_scadenza < oggi and not f.pagata %}
+                <tr class="{% if scaduta %}table-danger{% endif %}">
+                    <td><strong>{{ f.numero or '—' }}</strong></td>
+                    <td>{{ f.cliente_fornitore or '—' }}</td>
+                    <td>
+                        {% if f.sottotipo == 'subappalto' %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-people me-1"></i>Subappalto</span>
+                        {% elif f.sottotipo == 'materiali' %}
+                            <span class="badge bg-info text-white"><i class="bi bi-boxes me-1"></i>Materiali</span>
+                        {% else %}<span class="text-muted small">—</span>{% endif %}
+                    </td>
+                    <td class="{% if scaduta %}text-danger fw-700{% else %}text-muted{% endif %} small">
+                        {{ f.data_scadenza.strftime('%d/%m/%Y') if f.data_scadenza else '—' }}
+                        {% if scaduta %}<i class="bi bi-exclamation-triangle ms-1"></i>{% endif %}
+                    </td>
+                    <td class="text-end fw-700">€ {{ '%.2f'|format(f.importo) }}</td>
+                    <td class="text-center">
+                        {% if f.pagata %}
+                            <span class="status status-ok"><i class="bi bi-check-circle-fill"></i> Pagata</span>
+                        {% else %}
+                            <span class="status status-pending">Non pagata</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if f.file_path %}
+                        <a href="{{ url_for('serve_upload', filepath=f.file_path) }}" target="_blank"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-file-earmark-arrow-down"></i>
+                        </a>
+                        {% else %}<span class="text-muted small">—</span>{% endif %}
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('elimina_fattura', fattura_id=f.id) }}"
+                              onsubmit="return confirm('Eliminare questa fattura?')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state py-4">
+        <i class="bi bi-inbox" style="font-size:2rem;color:var(--border);"></i>
+        <p class="text-muted mt-2 mb-0">Nessuna fattura passiva.</p>
+    </div>
+    {% endif %}
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     STILI CONDIVISI MODAL MULTI-FILE
+════════════════════════════════════════════════ -->
+<style>
+.fattura-card {
+    background:#fff; border:1.5px solid #e2e8f0;
+    border-radius:12px; padding:14px 16px; margin-bottom:10px;
+    transition:border-color .2s;
+}
+.fattura-card.loading { border-color:#bfdbfe; background:#f8fbff; }
+.fattura-card.ready   { border-color:#86efac; background:#f0fdf4; }
+.fattura-card.fc-err  { border-color:#fca5a5; background:#fff1f2; }
+
+.sott-pill {
+    display:inline-block; padding:3px 12px; border-radius:20px;
+    font-size:.74rem; font-weight:700; cursor:pointer; border:2px solid transparent;
+    transition:all .15s; user-select:none;
+}
+.sott-pill.materiali           { border-color:#7dd3fc; color:#0369a1; }
+.sott-pill.materiali.sel       { background:#e0f2fe; border-color:#0284c7; }
+.sott-pill.subappalto          { border-color:#fde68a; color:#92400e; }
+.sott-pill.subappalto.sel      { background:#fef3c7; border-color:#d97706; }
+
+.drop-zone {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border:2px dashed #bfdbfe; border-radius:14px; padding:40px 24px;
+    cursor:pointer; background:#f0f7ff; transition:all .2s; text-align:center;
+    width:100%; position:relative;
+}
+.drop-zone:hover { border-color:#3b82f6; background:#e0f0ff; }
+</style>
+
+
+<!-- ═══════════════════════════════════════════════
+     MODAL FATTURE ATTIVE (multi-file, tipo fisso)
+════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalAttive" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0" style="background:#f0fdf4;border-radius:16px 16px 0 0;padding:18px 24px 14px;">
+                <div>
+                    <h5 class="modal-title fw-800" style="color:#065f46;font-size:1rem;">
+                        <i class="bi bi-arrow-down-circle-fill text-success me-2"></i>Carica Fatture Attive
+                    </h5>
+                    <p class="text-muted mb-0" style="font-size:.81rem;">
+                        Seleziona uno o più file — i dati vengono letti automaticamente da ogni PDF
+                    </p>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"
+                        onclick="resetM('att')"></button>
+            </div>
+            <div class="modal-body px-4 pt-3">
+                <div id="attDrop" class="drop-zone" ondragover="dzOver(event)" ondragleave="dzLeave(event,this)"
+                     ondrop="dzDrop(event,'att')" onclick="document.getElementById('attFileIn').click()">
+                    <i class="bi bi-file-earmark-arrow-up" style="font-size:2.6rem;color:#10b981;margin-bottom:10px;"></i>
+                    <p class="fw-700 mb-1" style="color:#065f46;">Trascina i file qui o clicca per selezionare</p>
+                    <p class="text-muted mb-0" style="font-size:.81rem;">PDF, immagini, Word — selezionane più di uno insieme</p>
+                    <input type="file" id="attFileIn" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                           style="display:none;" onchange="aggFile('att',this.files)">
+                </div>
+                <div id="attInfo" style="display:none;" class="mt-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-700 text-muted" style="font-size:.84rem;">
+                            <span id="attCount">0</span> file in coda
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                onclick="document.getElementById('attFileIn').click()">
+                            <i class="bi bi-plus-circle me-1"></i>Aggiungi altri
+                        </button>
+                    </div>
+                    <div id="attCards"></div>
+                </div>
+                <div id="attProgress" style="display:none;" class="mt-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <div class="spinner-border spinner-border-sm text-success"></div>
+                        <span class="fw-600 text-muted" id="attStatus" style="font-size:.85rem;"></span>
+                    </div>
+                    <div class="progress" style="height:7px;border-radius:8px;">
+                        <div id="attBar" class="progress-bar bg-success" style="width:0%;transition:width .4s;border-radius:8px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0" style="background:#f0fdf4;border-radius:0 0 16px 16px;padding:12px 24px;">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" onclick="resetM('att')">Annulla</button>
+                <button type="button" class="btn btn-success" id="attBtn" style="display:none;"
+                        onclick="uploadAll('att')">
+                    <i class="bi bi-cloud-upload me-1"></i>Carica tutte (<span id="attN">0</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL FATTURE PASSIVE (multi-file, sottotipo per file)
+════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalPassive" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0" style="background:#fff1f2;border-radius:16px 16px 0 0;padding:18px 24px 14px;">
+                <div>
+                    <h5 class="modal-title fw-800" style="color:#991b1b;font-size:1rem;">
+                        <i class="bi bi-arrow-up-circle-fill text-danger me-2"></i>Carica Fatture Passive
+                    </h5>
+                    <p class="text-muted mb-0" style="font-size:.81rem;">
+                        Seleziona il cliente, poi carica i PDF — le voci vengono create automaticamente
+                    </p>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"
+                        onclick="resetM('pas')"></button>
+            </div>
+            <div class="modal-body px-4 pt-3">
+
+                <!-- ── Info auto-rilevamento ──────────────────────── -->
+                <div style="background:#fff8f8;border:1.5px solid #fecaca;border-radius:10px;
+                            padding:10px 14px;margin-bottom:14px;font-size:.81rem;color:#7f1d1d;">
+                    <i class="bi bi-magic me-1"></i>
+                    <b>Tutto automatico</b> — il sistema legge la P.IVA del fornitore dal PDF
+                    e la collega al cliente corrispondente. Per abilitare il collegamento,
+                    assicurati di inserire la P.IVA nel profilo del cliente (sezione Tecnico).
+                </div>
+
+                <!-- ── Drop zone ──────────────────────────────────── -->
+                <div id="pasDrop" class="drop-zone" ondragover="dzOver(event)" ondragleave="dzLeave(event,this)"
+                     ondrop="dzDrop(event,'pas')" onclick="document.getElementById('pasFileIn').click()">
+                    <i class="bi bi-file-earmark-arrow-up" style="font-size:2.6rem;color:#ef4444;margin-bottom:10px;"></i>
+                    <p class="fw-700 mb-1" style="color:#991b1b;">Trascina i file qui o clicca per selezionare</p>
+                    <p class="text-muted mb-0" style="font-size:.81rem;">PDF, immagini, Word — selezionane più di uno insieme</p>
+                    <input type="file" id="pasFileIn" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                           style="display:none;" onchange="aggFile('pas',this.files)">
+                </div>
+                <div id="pasInfo" style="display:none;" class="mt-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-700 text-muted" style="font-size:.84rem;">
+                            <span id="pasCount">0</span> file in coda
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                onclick="document.getElementById('pasFileIn').click()">
+                            <i class="bi bi-plus-circle me-1"></i>Aggiungi altri
+                        </button>
+                    </div>
+                    <div id="pasCards"></div>
+                </div>
+                <div id="pasProgress" style="display:none;" class="mt-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <div class="spinner-border spinner-border-sm text-danger"></div>
+                        <span class="fw-600 text-muted" id="pasStatus" style="font-size:.85rem;"></span>
+                    </div>
+                    <div class="progress" style="height:7px;border-radius:8px;">
+                        <div id="pasBar" class="progress-bar bg-danger" style="width:0%;transition:width .4s;border-radius:8px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0" style="background:#fff1f2;border-radius:0 0 16px 16px;padding:12px 24px;">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" onclick="resetM('pas')">Annulla</button>
+                <button type="button" class="btn btn-danger" id="pasBtn" style="display:none;"
+                        onclick="uploadAll('pas')">
+                    <i class="bi bi-cloud-upload me-1"></i>Carica tutte (<span id="pasN">0</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+const LEGGI_URL  = '{{ url_for("leggi_fattura") }}';
+const CARICA_URL = '{{ url_for("carica_fattura") }}';
+
+/* Lista clienti per selettore per-card (solo fatture passive) */
+const CLIENTI_LIST = [
+{% for c in clienti %}
+    { id: {{ c.id }}, numero: {{ c.numero or 0 }}, nome: {{ c.nome | tojson }}, piva: {{ (c.partita_iva or '') | tojson }} }{% if not loop.last %},{% endif %}
+{% endfor %}
+];
+/* Mappa numero→nome per hint codice CLI */
+const CLIENTI_NUM_MAP = {};
+CLIENTI_LIST.forEach(c => { if(c.numero) CLIENTI_NUM_MAP[c.numero] = c.nome; });
+/* Mappa numero_cliente→{numero_commessa→nome} per hint codice COM */
+const COMMESSE_MAP = {{ commesse_map | tojson }};
+/* Lista piatta commesse per selettori multi-commessa */
+const COMMESSE_FLAT = {{ commesse_flat | tojson }};
+
+/* queue separata per ciascun modal */
+const queues = { att: [], pas: [] };
+
+/* ── Reset ──────────────────────────────── */
+function resetM(m){
+    queues[m] = [];
+    document.getElementById(m+'Cards').innerHTML     = '';
+    document.getElementById(m+'Info').style.display  = 'none';
+    document.getElementById(m+'Drop').style.display  = '';
+    document.getElementById(m+'Progress').style.display = 'none';
+    document.getElementById(m+'Btn').style.display   = 'none';
+    document.getElementById(m+'Bar').style.width     = '0%';
+    document.getElementById(m+'FileIn').value        = '';
+}
+
+/* ── Drag & drop ────────────────────────── */
+function dzOver(e){ e.preventDefault(); }
+function dzLeave(e, el){ }
+function dzDrop(e, m){
+    e.preventDefault();
+    if(e.dataTransfer.files.length) aggFile(m, e.dataTransfer.files);
+}
+
+/* ── Aggiungi file ──────────────────────── */
+function aggFile(m, fileList){
+    const files = Array.from(fileList);
+    if(!files.length) return;
+    document.getElementById(m+'Drop').style.display = 'none';
+    document.getElementById(m+'Info').style.display = '';
+    files.forEach(f => {
+        const idx = queues[m].length;
+        queues[m].push({ file:f, sottotipo:'materiali',
+                         numero:'', importo:'', cliente:'', emissione:'', scadenza:'', note:'',
+                         righe: [], clienteId: '', pivaRilevata: '', pivaFornitore: '', commessaId: '', importoNetto: '',
+                         codiceCliente: '', codiceCommessa: '',
+                         multiCommessa: false, commesseSplits: [] });
+        creaCard(m, idx, f.name);
+        mostraPreviewFile(m, idx, f);
+        leggiFile(m, idx, f);
+    });
+    aggiornaBtn(m);
+}
+
+/* ── Card ───────────────────────────────── */
+function creaCard(m, idx, nome){
+    const div = document.createElement('div');
+    div.id = `${m}C${idx}`;
+    div.className = 'fattura-card loading';
+
+    /* Selettore cliente+commessa con autocomplete — comune ad att e pas */
+    const acBorder = m==='att' ? '#22c55e' : '#f59e0b';
+    const acBg     = m==='att' ? '#f0fdf4' : '#fffbeb';
+    const selClienteHtml = (m === 'pas' || m === 'att') ? `
+        <div id="${m}SelCl${idx}" style="display:none;margin-top:8px;">
+            <label style="font-size:.78rem;font-weight:700;color:${m==='att'?'#065f46':'#b45309'};margin-bottom:3px;display:block;">
+                <i class="bi bi-person-badge me-1"></i>
+                ${m==='att'?'Assegna fattura al cliente:':'Assegna costi al cliente:'}
+            </label>
+            <div class="cl-autocomplete-wrap" style="position:relative;">
+                <div style="position:relative;">
+                    <i class="bi bi-search" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.8rem;pointer-events:none;z-index:1;"></i>
+                    <input type="text" id="${m}ClSearch${idx}" placeholder="Cerca cliente per nome o P.IVA…"
+                           autocomplete="off" class="form-control form-control-sm"
+                           style="padding-left:28px;border-color:${acBorder};background:${acBg};"
+                           oninput="filtaClienti('${m}',${idx},this.value)"
+                           onfocus="filtaClienti('${m}',${idx},this.value)">
+                </div>
+                <div id="${m}ClDrop${idx}" class="cl-autocomplete-drop"
+                     style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+                            background:#1e293b;border:1px solid #334155;border-radius:10px;
+                            z-index:3000;max-height:220px;overflow-y:auto;
+                            box-shadow:0 10px 30px rgba(0,0,0,.55);">
+                </div>
+            </div>
+            <div id="${m}SelCom${idx}" style="display:none;margin-top:6px;">
+                <label style="font-size:.78rem;font-weight:700;color:#7c3aed;margin-bottom:3px;display:block;">
+                    <i class="bi bi-layers me-1"></i>
+                    Commessa specifica:
+                </label>
+                <select id="${m}ComSel${idx}" class="form-select form-select-sm"
+                        onchange="queues['${m}'][${idx}].commessaId=this.value"
+                        style="border-color:#7c3aed;background:#faf5ff;">
+                    <option value="">— prima commessa (default) —</option>
+                </select>
+            </div>
+        </div>` : '';
+
+    const sottHtml = m === 'pas' ? `
+        <div style="margin-top:8px;">
+            <span class="text-muted small fw-600 me-2">Tipo:</span>
+            <span class="sott-pill materiali sel" id="${m}pM${idx}"
+                  onclick="setSott('${m}',${idx},'materiali')">
+                <i class="bi bi-boxes me-1"></i>Materiali
+            </span>
+            <span class="sott-pill subappalto ms-1" id="${m}pS${idx}"
+                  onclick="setSott('${m}',${idx},'subappalto')">
+                <i class="bi bi-people me-1"></i>Subappalto
+            </span>
+        </div>
+        ${selClienteHtml}` : selClienteHtml;
+
+    /* Campi codice CLI/COM — presenti sia per fatture attive che passive */
+    const bgCodici  = m === 'att' ? '#f0fdf4' : '#faf5ff';
+    const brdCodici = m === 'att' ? '#86efac'  : '#ddd6fe';
+    const clrCodici = m === 'att' ? '#15803d'  : '#6d28d9';
+    const clrInput  = m === 'att' ? '#22c55e'  : '#a78bfa';
+    const lblCodici = m === 'att'
+        ? 'Collega al cliente e commessa (codice CLI e COM)'
+        : 'Invia al Tecnico per approvazione (inserisci il codice CLI e COM dal tesserino)';
+    const codiciHtml = `
+        <div style="margin-top:10px;padding:8px 10px;background:${bgCodici};border:1px solid ${brdCodici};border-radius:8px;">
+            <div style="font-size:.78rem;font-weight:700;color:${clrCodici};margin-bottom:6px;">
+                <i class="bi bi-signpost-split me-1"></i>${lblCodici}
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-start">
+                <div style="min-width:90px;">
+                    <input type="text" class="form-control form-control-sm" placeholder="Cod. CLI"
+                           id="${m}codCli${idx}" maxlength="10" style="border-color:${clrInput};"
+                           oninput="hintCodCli('${m}',${idx},this.value)">
+                    <div id="${m}hintCli${idx}" style="font-size:.72rem;min-height:15px;margin-top:2px;font-weight:600;"></div>
+                </div>
+                <span style="color:${clrCodici};font-weight:700;padding-top:5px;">+</span>
+                <div style="min-width:90px;">
+                    <input type="text" class="form-control form-control-sm" placeholder="Cod. COM"
+                           id="${m}codCom${idx}" maxlength="10" style="border-color:${clrInput};"
+                           oninput="hintCodCom('${m}',${idx},this.value)">
+                    <div id="${m}hintCom${idx}" style="font-size:.72rem;min-height:15px;margin-top:2px;font-weight:600;"></div>
+                </div>
+            </div>
+        </div>`;
+
+    div.innerHTML = `
+    <div class="d-flex align-items-start gap-3">
+        <div id="${m}Ico${idx}" style="font-size:1.3rem;flex-shrink:0;margin-top:2px;">
+            <div class="spinner-border spinner-border-sm text-primary"></div>
+        </div>
+        <div class="flex-grow-1 min-w-0">
+            <div class="fw-700 text-truncate mb-1" style="font-size:.87rem;max-width:480px;" title="${nome}">
+                <i class="bi bi-file-earmark-text text-muted me-1"></i>${nome}
+            </div>
+            <div id="${m}Dati${idx}" class="text-muted small" style="font-style:italic;">
+                Lettura in corso…
+            </div>
+            <div id="${m}Righe${idx}" style="display:none;margin-top:8px;"></div>
+            <div id="${m}MultiComm${idx}"></div>
+            ${sottHtml}
+            <div id="${m}Man${idx}" style="display:none;" class="mt-2">
+                <div class="row g-2">
+                    <div class="col-sm-3">
+                        <input type="text" class="form-control form-control-sm" placeholder="N. Fattura"
+                               id="${m}mN${idx}" oninput="queues['${m}'][${idx}].numero=this.value">
+                    </div>
+                    <div class="col-sm-3">
+                        <input type="number" class="form-control form-control-sm" placeholder="Importo €" step="0.01"
+                               id="${m}mI${idx}" oninput="queues['${m}'][${idx}].importo=this.value">
+                    </div>
+                    <div class="col-sm-3">
+                        <input type="date" class="form-control form-control-sm"
+                               id="${m}mS${idx}" oninput="queues['${m}'][${idx}].scadenza=this.value">
+                    </div>
+                    <div class="col-sm-3">
+                        <input type="text" class="form-control form-control-sm" placeholder="Controparte"
+                               id="${m}mC${idx}" oninput="queues['${m}'][${idx}].cliente=this.value">
+                    </div>
+                    <div class="col-12">
+                        <input type="text" class="form-control form-control-sm" placeholder="Note"
+                               id="${m}mNote${idx}" oninput="queues['${m}'][${idx}].note=this.value">
+                    </div>
+                </div>
+            </div>
+            <div id="${m}Prev${idx}" style="display:none;margin-top:10px;"></div>
+            ${codiciHtml}
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger" style="flex-shrink:0;"
+                onclick="rimuovi('${m}',${idx})" title="Rimuovi"><i class="bi bi-x-lg"></i>
+        </button>
+    </div>`;
+    document.getElementById(m+'Cards').appendChild(div);
+}
+
+/* ── Anteprima file selezionato ─────────── */
+function mostraPreviewFile(m, idx, file){
+    const prevEl = document.getElementById(`${m}Prev${idx}`);
+    if(!prevEl) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    const url = URL.createObjectURL(file);
+    if(['png','jpg','jpeg','webp','gif'].includes(ext)){
+        prevEl.innerHTML = `<img src="${url}" style="max-width:100%;max-height:240px;border-radius:8px;border:1px solid #e2e8f0;object-fit:contain;" alt="Anteprima">`;
+        prevEl.style.display = '';
+    } else if(ext === 'pdf'){
+        prevEl.innerHTML = `<iframe src="${url}" style="width:100%;height:300px;border-radius:8px;border:1px solid #e2e8f0;" title="Anteprima PDF"></iframe>`;
+        prevEl.style.display = '';
+    }
+}
+
+/* ── Mostra righe estratte ──────────────── */
+function mostraRighe(m, idx, righe){
+    if(!righe || !righe.length) return;
+    const el = document.getElementById(`${m}Righe${idx}`);
+    if(!el) return;
+    const fmtN = v => v!=null ? parseFloat(v).toLocaleString('it-IT',{minimumFractionDigits:2}) : '—';
+    let html = `<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;font-size:.78rem;">
+        <div style="background:#f8fafc;padding:4px 10px;font-weight:700;color:#475569;display:flex;gap:8px;">
+            <span style="flex:1">Descrizione</span>
+            <span style="width:50px;text-align:right">Qtà</span>
+            <span style="width:70px;text-align:right">P.U.</span>
+            <span style="width:80px;text-align:right">Importo</span>
+        </div>`;
+    righe.forEach(r => {
+        html += `<div style="padding:4px 10px;border-top:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;">
+            <span style="flex:1;color:#1e293b;">${r.descrizione||''}</span>
+            <span style="width:50px;text-align:right;color:#64748b;">${r.quantita!=null?r.quantita:''}</span>
+            <span style="width:70px;text-align:right;color:#64748b;">${r.prezzo_unitario!=null?'€'+fmtN(r.prezzo_unitario):''}</span>
+            <span style="width:80px;text-align:right;font-weight:700;color:#0f172a;">${r.importo!=null?'€'+fmtN(r.importo):''}</span>
+        </div>`;
+    });
+    html += `</div>`;
+    el.innerHTML = html;
+    el.style.display = '';
+}
+
+/* ── Lettura AJAX ───────────────────────── */
+async function leggiFile(m, idx, file){
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+        const resp = await fetch(LEGGI_URL, {method:'POST', body:fd});
+        const d = await resp.json();
+
+        const q = queues[m][idx];
+        q.numero       = d.numero             || '';
+        q.importo      = d.importo            || '';  // con IVA (banca)
+        q.importoNetto = d.importo_netto      || '';  // senza IVA (tecnico)
+        q.cliente      = d.cliente_fornitore  || '';
+        q.emissione    = d.data_emissione     || '';
+        q.scadenza     = d.data_scadenza      || '';
+        q.righe        = d.righe              || [];
+        // Multi-commessa
+        q.multiCommessa  = d.multi_commessa   || false;
+        q.commesseSplits = d.commesse_splits  || [];
+        q.pivaRilevata  = d.partita_iva        || '';
+        if(m === 'pas') q.pivaFornitore = d.partita_iva || '';  // per fattura passiva = P.IVA fornitore
+        q.clienteId    = d.cliente_match_id   ? String(d.cliente_match_id) : '';
+        if(m === 'pas' && d.sottotipo) setSott(m, idx, d.sottotipo);
+        // Suggerimento commessa per fattura passiva via P.IVA fornitore
+        if(m === 'pas' && d.commessa_suggerita_id){
+            q.commessaId = String(d.commessa_suggerita_id);
+            q._commessaSuggeritaNome = d.commessa_suggerita_nome || '';
+            // Imposta ANCHE il clienteId dalla commessa suggerita (il cliente proprietario)
+            // così carica_fattura può risolvere commessa anche senza CLI/COM manuali
+            if(d.commessa_suggerita_cliente_id){
+                q.clienteId = String(d.commessa_suggerita_cliente_id);
+            }
+            // Auto-fill CLI + COM code fields se numeri disponibili
+            setTimeout(() => {
+                const cliEl = document.getElementById(`${m}codCli${idx}`);
+                const comEl = document.getElementById(`${m}codCom${idx}`);
+                if(d.commessa_suggerita_cli_num != null && cliEl && comEl){
+                    q.codiceCliente  = String(d.commessa_suggerita_cli_num);
+                    q.codiceCommessa = String(d.commessa_suggerita_com_num || '');
+                    cliEl.value = q.codiceCliente;  hintCodCli(m, idx, q.codiceCliente);
+                    comEl.value = q.codiceCommessa; hintCodCom(m, idx, q.codiceCommessa);
+                } else if(d.commessa_suggerita_nome && cliEl){
+                    // Numeri non disponibili: colora il box CLI/COM in verde e mostra hint
+                    const boxCod = cliEl.closest('div[style*="border"]') ||
+                                   cliEl.closest('div[style*="background"]');
+                    if(boxCod){
+                        boxCod.style.background = '#f0fdf4';
+                        boxCod.style.borderColor = '#86efac';
+                    }
+                    const hintEl = document.getElementById(`${m}hintCli${idx}`);
+                    if(hintEl) hintEl.innerHTML =
+                        `<span style="color:#15803d;"><i class="bi bi-check-circle-fill me-1"></i>`+
+                        `Commessa rilevata: <b>${d.commessa_suggerita_nome}</b></span>`;
+                }
+            }, 120);
+        }
+
+        const imp = d.importo ? '€ '+parseFloat(d.importo).toLocaleString('it-IT',{minimumFractionDigits:2}) : '—';
+        const sca = d.data_scadenza ? fmtD(d.data_scadenza) : '—';
+        const nRighe = q.righe.length;
+
+        /* Banner cliente auto-rilevato (att e pas) + mostra/nascondi selettore */
+        let clienteBanner = '';
+        if(m === 'pas' || m === 'att'){
+            const selEl   = document.getElementById(`${m}SelCl${idx}`);
+            const sottDiv = m === 'pas' ? document.getElementById(`${m}pM${idx}`)?.parentElement : null;
+            if(d.cliente_match_nome){
+                /* Match automatico: nascondi il select cliente */
+                if(selEl) selEl.style.display = 'none';
+                if(m === 'pas' && sottDiv){
+                    sottDiv.style.background    = '#f0fdf4';
+                    sottDiv.style.border        = '1.5px solid #86efac';
+                    sottDiv.style.borderRadius  = '8px';
+                    sottDiv.style.padding       = '6px 10px';
+                    sottDiv.style.marginTop     = '8px';
+                }
+                if(m === 'pas'){
+                    clienteBanner = `<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:.79rem;color:#15803d;font-weight:700;">
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            Costi → <b>${d.cliente_match_nome}</b>
+                            <span style="font-weight:400;color:#6b7280;margin-left:4px;">(P.IVA ${q.pivaRilevata})</span>
+                        </span>
+                        <span style="font-size:.78rem;color:#1d4ed8;background:#dbeafe;border-radius:20px;padding:2px 8px;font-weight:700;">
+                            <i class="bi bi-arrow-down me-1"></i>Scegli Materiali o Subappalto
+                        </span>
+                    </div>`;
+                } else {
+                    clienteBanner = `<div style="margin-top:6px;font-size:.79rem;color:#15803d;font-weight:700;">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        Fattura → <b>${d.cliente_match_nome}</b>
+                        <span style="font-weight:400;color:#6b7280;margin-left:4px;">(P.IVA ${q.pivaRilevata})</span>
+                    </div>`;
+                }
+            } else {
+                /* Nessun match automatico: mostra l'autocomplete per selezione manuale */
+                if(selEl) selEl.style.display = '';
+                /* Se abbiamo un nome fornitore estratto, pre-cerca il cliente */
+                if(d.cliente_fornitore){
+                    setTimeout(() => autoProponiCliente(m, idx, d.cliente_fornitore), 80);
+                }
+                const isPas = m === 'pas';
+                if(q.pivaRilevata){
+                    clienteBanner = `<div style="margin-top:6px;font-size:.79rem;color:#b45309;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        P.IVA <b>${q.pivaRilevata}</b> rilevata — nessun cliente abbinato.
+                        Cerca il cliente qui sotto${isPas?' per creare i costi automaticamente':''}.
+                    </div>`;
+                } else if(d.cliente_fornitore){
+                    clienteBanner = `<div style="margin-top:6px;font-size:.79rem;color:#1d4ed8;">
+                        <i class="bi bi-search me-1"></i>
+                        Fornitore "<b>${d.cliente_fornitore}</b>" — seleziona il cliente corrispondente qui sotto.
+                    </div>`;
+                } else {
+                    clienteBanner = `<div style="margin-top:6px;font-size:.79rem;color:#b45309;">
+                        <i class="bi bi-person-badge me-1"></i>
+                        Cerca il cliente per assegnare la fattura${isPas?' e creare i costi automaticamente':''}.
+                    </div>`;
+                }
+            }
+        }
+
+        const impNetto = d.importo_netto
+            ? '€ '+parseFloat(d.importo_netto).toLocaleString('it-IT',{minimumFractionDigits:2})
+            : null;
+        const impDisplay = m === 'pas' && impNetto
+            ? `<span class="me-3"><b title="Imponibile senza IVA (tecnico)">Imponibile</b> `+
+              `<span style="color:#1d4ed8;font-weight:700;">${impNetto}</span></span>`+
+              `<span class="me-3"><b title="Totale con IVA (banca)">Tot. IVA</b> `+
+              `<span style="color:#15803d;font-weight:700;">${imp}</span></span>`
+            : `<span class="me-3"><b>Importo</b> ${imp}</span>`;
+        document.getElementById(`${m}Dati${idx}`).innerHTML =
+            `<span class="me-3"><b>N°</b> ${d.numero||'—'}</span>`+
+            impDisplay+
+            `<span class="me-3"><b>Scadenza</b> ${sca}</span>`+
+            `<span class="me-3"><b>Da</b> ${d.cliente_fornitore||'—'}</span>`+
+        (m==='pas' && d.partita_iva ? `<span class="me-3" style="color:#6b7280"><i class="bi bi-card-text me-1"></i>P.IVA forn.: <b>${d.partita_iva}</b></span>` : '')+
+        (m==='pas' && d.commessa_suggerita_nome ? `<span class="me-3 badge" style="background:#e0f2fe;color:#0369a1;font-size:.75rem;font-weight:600;"><i class="bi bi-building me-1"></i>Commessa suggerita: <b>${d.commessa_suggerita_nome}</b></span>` : '')+
+            (nRighe ? `<span class="badge bg-info text-white me-2">${nRighe} rig${nRighe===1?'a':'he'}</span>` : '')+
+            `<a href="#" onclick="togMan('${m}',${idx},event)" class="text-accent" style="font-size:.78rem;">`+
+            `<i class="bi bi-pencil-square"></i> modifica</a>`+
+            clienteBanner;
+
+        /* Mostra tabella righe */
+        if(m === 'pas') mostraRighe(m, idx, q.righe);
+
+        /* Pannello multi-commessa */
+        if(m === 'pas' && q.multiCommessa && q.commesseSplits.length >= 2){
+            const mc = document.getElementById(`${m}MultiComm${idx}`);
+            if(mc){
+                // Opzioni select commesse
+                const opts = COMMESSE_FLAT.map(c =>
+                    `<option value="${c.id}">${c.cliente_nome ? c.cliente_nome+' › ' : ''}${c.nome}</option>`
+                ).join('');
+                let html = `<div style="margin:8px 0 4px;padding:8px 12px;
+                    background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px;">
+                    <div style="font-size:.82rem;font-weight:700;color:#6d28d9;margin-bottom:6px;">
+                    <i class="bi bi-diagram-3 me-1"></i>Fattura multi-commessa:
+                    ${q.commesseSplits.length} sezioni rilevate</div>`;
+                q.commesseSplits.forEach((sp, si) => {
+                    const selId = `mc_${m}_${idx}_${si}`;
+                    const presel = sp.commessa_id
+                        ? `<option value="" disabled>— cambia —</option>`+opts.replace(
+                            `value="${sp.commessa_id}"`,
+                            `value="${sp.commessa_id}" selected`)
+                        : `<option value="">— assegna commessa —</option>`+opts;
+                    const tot = sp.totale
+                        ? '€ '+parseFloat(sp.totale).toLocaleString('it-IT',{minimumFractionDigits:2})
+                        : '—';
+                    html += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+                        padding:5px 0;border-top:1px solid #e9d5ff;">
+                        <span style="font-weight:700;color:#5b21b6;font-size:.82rem;
+                            background:#ede9fe;border-radius:6px;padding:2px 7px;">${sp.codice_raw}</span>
+                        <span style="font-size:.82rem;">→</span>
+                        <span style="font-weight:700;color:#1d4ed8;font-size:.85rem;">${tot}</span>
+                        <select id="${selId}" style="font-size:.78rem;padding:3px 6px;
+                            border:1.5px solid #a78bfa;border-radius:6px;max-width:260px;"
+                            onchange="queues['${m}'][${idx}].commesseSplits[${si}].commessa_id=this.value">
+                            ${presel}
+                        </select>
+                        ${sp.commessa_nome && sp.commessa_id
+                            ? '<span style="font-size:.78rem;color:#15803d;">'
+                              +'<i class="bi bi-check-circle-fill me-1"></i>'
+                              +sp.commessa_nome+'</span>'
+                            : ''}
+                    </div>`;
+                });
+                html += '</div>';
+                mc.innerHTML = html;
+            }
+        }
+
+        /* Pre-popola manuali:
+           - passiva → campo importo = imponibile senza IVA (tecnico)
+           - attiva  → campo importo = totale con IVA */
+        document.getElementById(`${m}mN${idx}`).value = d.numero || '';
+        document.getElementById(`${m}mI${idx}`).value =
+            (m === 'pas' && d.importo_netto) ? d.importo_netto : (d.importo || '');
+        document.getElementById(`${m}mS${idx}`).value = d.data_scadenza || '';
+        document.getElementById(`${m}mC${idx}`).value = d.cliente_fornitore || '';
+
+        if(d.scansione){
+            /* PDF scansionato: testo non leggibile — apri campi manuali */
+            document.getElementById(`${m}Ico${idx}`).innerHTML =
+                '<i class="bi bi-file-earmark-image text-warning fs-5"></i>';
+            document.getElementById(`${m}C${idx}`).className = 'fattura-card fc-err';
+            document.getElementById(`${m}Dati${idx}`).innerHTML =
+                `<span style="color:#b45309;font-size:.82rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <b>PDF scansionato</b> — il testo non è leggibile automaticamente.
+                    Compila i campi qui sotto e carica.
+                </span>`;
+            /* Apri subito i campi manuali */
+            document.getElementById(`${m}Man${idx}`).style.display = '';
+        } else {
+            document.getElementById(`${m}Ico${idx}`).innerHTML =
+                '<i class="bi bi-check-circle-fill text-success fs-5"></i>';
+            document.getElementById(`${m}C${idx}`).className = 'fattura-card ready';
+        }
+
+    } catch(e) {
+        document.getElementById(`${m}Dati${idx}`).innerHTML =
+            `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Errore lettura.</span> `+
+            `<a href="#" onclick="togMan('${m}',${idx},event)" class="text-accent" style="font-size:.78rem;">inserisci manualmente</a>`;
+        document.getElementById(`${m}Ico${idx}`).innerHTML =
+            '<i class="bi bi-exclamation-circle-fill text-warning fs-5"></i>';
+        document.getElementById(`${m}C${idx}`).className = 'fattura-card fc-err';
+        document.getElementById(`${m}Man${idx}`).style.display = '';
+    }
+}
+
+/* ── Sottotipo ──────────────────────────── */
+function setSott(m, idx, val){
+    queues[m][idx].sottotipo = val;
+    const pM = document.getElementById(`${m}pM${idx}`);
+    const pS = document.getElementById(`${m}pS${idx}`);
+    if(!pM || !pS) return;
+    if(val === 'materiali'){ pM.classList.add('sel'); pS.classList.remove('sel'); }
+    else                   { pS.classList.add('sel'); pM.classList.remove('sel'); }
+}
+
+/* ── Toggle campi manuali ───────────────── */
+function togMan(m, idx, e){
+    e.preventDefault();
+    const el = document.getElementById(`${m}Man${idx}`);
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+/* ── Rimuovi ────────────────────────────── */
+function rimuovi(m, idx){
+    queues[m][idx] = null;
+    const c = document.getElementById(`${m}C${idx}`);
+    if(c) c.remove();
+    aggiornaBtn(m);
+}
+
+/* ── Aggiorna contatore / pulsante ─────── */
+function aggiornaBtn(m){
+    const n = queues[m].filter(Boolean).length;
+    document.getElementById(m+'Count').textContent = n;
+    document.getElementById(m+'N').textContent     = n;
+    document.getElementById(m+'Btn').style.display  = n ? '' : 'none';
+}
+
+/* ── Upload sequenziale ─────────────────── */
+async function uploadAll(m){
+    const tipo  = m === 'att' ? 'attiva' : 'passiva';
+    const items = queues[m].map((q,i)=>q?{idx:i,...q}:null).filter(Boolean);
+    if(!items.length) return;
+
+    document.getElementById(m+'Btn').disabled = true;
+    document.getElementById(m+'Progress').style.display = '';
+
+    let ok=0, fail=0;
+    for(let i=0; i<items.length; i++){
+        const it = items[i];
+        document.getElementById(m+'Bar').style.width = Math.round(i/items.length*100)+'%';
+        document.getElementById(m+'Status').textContent =
+            `Caricamento ${i+1} di ${items.length}: ${it.file.name}…`;
+
+        const fd = new FormData();
+        fd.append('file',              it.file);
+        fd.append('tipo',              tipo);
+        fd.append('sottotipo',         tipo==='passiva' ? it.sottotipo : '');
+        fd.append('numero',            it.numero   || '');
+        fd.append('importo',           it.importo  || '0');   // con IVA → banca
+        fd.append('importo_netto',     it.importoNetto || ''); // senza IVA → tecnico/costi
+        fd.append('cliente_fornitore', it.cliente  || '');
+        fd.append('data_emissione',    it.emissione|| '');
+        fd.append('data_scadenza',     it.scadenza || '');
+        fd.append('note',              it.note     || '');
+        /* Match automatico per-file — rilevato dalla P.IVA del PDF */
+        fd.append('cliente_id',         it.clienteId    || '');
+        fd.append('partita_iva_cliente', it.pivaRilevata || '');
+        fd.append('partita_iva_fornitore', it.pivaFornitore || '');
+        fd.append('commessa_id',         it.commessaId   || '');
+        fd.append('righe_json',          JSON.stringify(it.righe || []));
+        fd.append('codice_cliente_ref',   it.codiceCliente || '');
+        fd.append('codice_commessa_ref',  it.codiceCommessa || '');
+        if(it.multiCommessa && it.commesseSplits && it.commesseSplits.length >= 2){
+            fd.append('multi_commessa', '1');
+            fd.append('commesse_splits_json', JSON.stringify(it.commesseSplits));
+        }
+
+        try {
+            const r = await fetch(CARICA_URL,{method:'POST',body:fd,redirect:'manual'});
+            if(r.type==='opaqueredirect'||r.ok||r.status===302) ok++;
+            else fail++;
+        } catch(e){ fail++; }
+    }
+
+    document.getElementById(m+'Bar').style.width = '100%';
+    document.getElementById(m+'Status').textContent =
+        `Completato: ${ok} caricati${fail>0?', '+fail+' errori':''}`;
+    setTimeout(()=>location.reload(), 900);
+}
+
+/* ── Autocomplete cliente ──────────────────────────────────────────── */
+
+function _evidenzia(testo, q){
+    if(!q || q.length < 2) return testo;
+    const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+    return testo.replace(re,'<mark style="background:#fbbf24;color:#1e293b;border-radius:2px;padding:0 1px;">$1</mark>');
+}
+
+function filtaClienti(m, idx, q){
+    const drop = document.getElementById(`${m}ClDrop${idx}`);
+    if(!drop) return;
+    const ql = (q||'').toLowerCase().trim();
+    const lista = ql.length === 0
+        ? CLIENTI_LIST.slice(0, 12)
+        : CLIENTI_LIST.filter(c =>
+            c.nome.toLowerCase().includes(ql) || (c.piva && c.piva.includes(ql))
+          ).slice(0, 12);
+    if(!lista.length){ drop.style.display='none'; return; }
+    drop.innerHTML = lista.map(c => `
+        <div onclick="selezionaCliente('${m}',${idx},${c.id},${JSON.stringify(c.nome)})"
+             style="padding:9px 14px;cursor:pointer;border-bottom:1px solid #334155;transition:background .12s;"
+             onmouseover="this.style.background='#2d3f58'" onmouseout="this.style.background=''">
+            <div style="font-weight:700;font-size:.85rem;color:#e8f0fe;">${_evidenzia(c.nome, q)}</div>
+            ${c.piva ? `<div style="font-size:.72rem;color:#94a3b8;margin-top:1px;"><i class="bi bi-card-text me-1"></i>${c.piva}</div>` : ''}
+        </div>`).join('');
+    drop.style.display = '';
+}
+
+function selezionaCliente(m, idx, id, nome){
+    const inp  = document.getElementById(`${m}ClSearch${idx}`);
+    const drop = document.getElementById(`${m}ClDrop${idx}`);
+    if(inp)  inp.value  = nome;
+    if(drop) drop.style.display = 'none';
+    onClienteChange(m, idx, String(id));
+}
+
+function autoProponiCliente(m, idx, nomeEstrato){
+    if(!nomeEstrato || !CLIENTI_LIST.length) return;
+    const ql     = nomeEstrato.toLowerCase().trim();
+    const parole = ql.split(/\s+/).filter(w => w.length > 2);
+    const scored = CLIENTI_LIST.map(c => {
+        const cn = c.nome.toLowerCase();
+        let score = 0;
+        if(cn === ql)                                          score = 100;
+        else if(cn.startsWith(ql.slice(0,5)) ||
+                ql.startsWith(cn.slice(0,5)))                  score = 65;
+        else {
+            parole.forEach(p => { if(cn.includes(p)) score += 22; });
+            if(ql.length >= 6 && cn.includes(ql.slice(0,6)))  score += 15;
+        }
+        return {...c, score};
+    }).filter(c => c.score > 0).sort((a,b) => b.score - a.score);
+
+    const inp = document.getElementById(`${m}ClSearch${idx}`);
+    if(!inp) return;
+
+    if(scored.length > 0 && scored[0].score >= 65){
+        /* Match forte → pre-seleziona automaticamente */
+        selezionaCliente(m, idx, scored[0].id, scored[0].nome);
+    } else {
+        /* Match parziale → mostra suggerimenti con ricerca pre-impostata */
+        inp.value = nomeEstrato;
+        filtaClienti(m, idx, nomeEstrato);
+    }
+}
+
+/* Chiudi dropdown se si clicca fuori dall'autocomplete */
+document.addEventListener('click', function(e){
+    document.querySelectorAll('.cl-autocomplete-drop').forEach(drop => {
+        const wrap = drop.closest('.cl-autocomplete-wrap');
+        if(wrap && !wrap.contains(e.target)) drop.style.display = 'none';
+    });
+});
+
+/* ── Cambio cliente → carica commesse dinamicamente ── */
+async function onClienteChange(m, idx, clienteId){
+    queues[m][idx].clienteId  = clienteId;
+    queues[m][idx].commessaId = '';
+    const comDiv = document.getElementById(`${m}SelCom${idx}`);
+    const comSel = document.getElementById(`${m}ComSel${idx}`);
+    if(!clienteId){ comDiv.style.display='none'; return; }
+    comDiv.style.display='';
+    comSel.innerHTML = '<option value="">Caricamento…</option>';
+    try {
+        const res = await fetch(`/api/commesse-per-cliente/${clienteId}`);
+        const lista = await res.json();
+        comSel.innerHTML = '<option value="">— prima commessa (default) —</option>' +
+            lista.map(c => `<option value="${c.id}">N°${c.numero} – ${c.nome}</option>`).join('');
+    } catch(e){
+        comSel.innerHTML = '<option value="">Errore caricamento commesse</option>';
+    }
+}
+
+/* ── Hint codice CLI / COM ──────────────── */
+function hintCodCli(m, idx, val){
+    queues[m][idx].codiceCliente = val.trim();
+    const hint = document.getElementById(`${m}hintCli${idx}`);
+    if(!hint) return;
+    const num = parseInt(val.trim());
+    if(!num){ hint.textContent = ''; return; }
+    const nome = CLIENTI_NUM_MAP[num];
+    hint.textContent = nome ? '→ ' + nome : '— non trovato';
+    hint.style.color = nome ? '#15803d' : '#dc2626';
+    /* aggiorna anche hint commessa se già compilato */
+    const comVal = document.getElementById(`${m}codCom${idx}`);
+    if(comVal && comVal.value) hintCodCom(m, idx, comVal.value);
+}
+
+function hintCodCom(m, idx, val){
+    queues[m][idx].codiceCommessa = val.trim();
+    const hint = document.getElementById(`${m}hintCom${idx}`);
+    if(!hint) return;
+    const numCom = parseInt(val.trim());
+    const numCli = parseInt((document.getElementById(`${m}codCli${idx}`)?.value||'').trim());
+    if(!numCom){ hint.textContent = ''; return; }
+    const mappa = COMMESSE_MAP[String(numCli)] || {};
+    const nome  = mappa[String(numCom)];
+    hint.textContent = nome ? '→ ' + nome : (numCli ? '— non trovata' : '— inserisci prima il CLI');
+    hint.style.color = nome ? '#2563eb' : '#dc2626';
+}
+
+/* ── Utility ────────────────────────────── */
+function fmtD(s){
+    if(!s) return '—';
+    const [y,mo,d]=s.split('-'); return `${d}/${mo}/${y}`;
+}
+</script>
+
+
+<!-- ── Archivio Abbinamenti DDT ↔ Fatture (inline) ─────────────────────── -->
+<div class="table-card mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0"><i class="bi bi-box-seam me-2 text-info"></i>Archivio Abbinamenti DDT ↔ Fatture Materiali</h5>
+        <a href="{{ url_for('archivio_abbinamenti_ddt') }}" class="btn btn-sm btn-outline-info">
+            <i class="bi bi-eye me-1"></i>Vedi tutto
+        </a>
+    </div>
+    <p class="text-muted small mb-0">
+        Ogni DDT approvato viene abbinato automaticamente alla fattura passiva materiali per P.IVA fornitore + commessa.<br>
+        <a href="{{ url_for('archivio_abbinamenti_ddt') }}" class="text-info">Apri archivio completo →</a>
+    </p>
+</div>
+
+<!-- ── Archivio Abbinamenti Ordini ↔ Subappalti (inline) ────────────────── -->
+<div class="table-card mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0"><i class="bi bi-diagram-3 me-2 text-warning"></i>Archivio Abbinamenti Ordini ↔ Fatture Subappalto</h5>
+        <a href="{{ url_for('archivio_abbinamenti_subappalti') }}" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-eye me-1"></i>Vedi tutto
+        </a>
+    </div>
+    <p class="text-muted small mb-0">
+        Le fatture passive subappalto vengono abbinate agli ordini per commessa. Se l'importo supera l'ordine la fattura viene <strong>bloccata automaticamente</strong>.<br>
+        <a href="{{ url_for('archivio_abbinamenti_subappalti') }}" class="text-warning">Apri archivio completo →</a>
+    </p>
+</div>
+
+{% endblock %}

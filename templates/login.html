@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Login – Gestionale Aziendale{% endblock %}
+{% block content %}
+<div class="auth-card">
+    <div class="auth-logo"><i class="bi bi-building-gear"></i></div>
+    <h2 class="text-center">Accedi</h2>
+    <p class="subtitle text-center">Inserisci le credenziali per entrare</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">Indirizzo Email</label>
+            <div class="input-icon">
+                <i class="bi bi-envelope"></i>
+                <input type="email" name="email" class="form-control" placeholder="nome@azienda.it" required autofocus>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Password</label>
+            <div class="input-icon">
+                <i class="bi bi-lock"></i>
+                <input type="password" name="password" class="form-control" placeholder="La tua password" required>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary-custom">
+            <i class="bi bi-arrow-right-circle me-2"></i>Continua con OTP
+        </button>
+    </form>
+
+    <p class="text-center mt-4 mb-0" style="font-size:.88rem; color:var(--text-muted)">
+        Non hai un account?
+        <a href="{{ url_for('registrazione') }}" style="color:var(--accent); font-weight:600; text-decoration:none">Registrati</a>
+    </p>
+</div>
+{% endblock %}

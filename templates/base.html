@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gestionale Aziendale{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+
+{% if current_user.is_authenticated %}
+
+<!-- ══════════════════════════════════════
+     SIDEBAR VERTICALE
+══════════════════════════════════════ -->
+<div class="sidebar-nav">
+
+    <!-- Brand -->
+    <a class="navbar-brand" href="{{ url_for('index') }}">
+        <div class="d-flex align-items-center gap-2">
+            <span style="font-size:1.35rem;line-height:1;">🔥</span>
+            <div>
+                <div class="brand-wordmark" style="letter-spacing:.5px;">
+                    <span class="brand-arte">PROME</span><span class="brand-dile">TEO</span>
+                </div>
+            </div>
+        </div>
+    </a>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Voci di menu -->
+    <ul class="sidebar-menu nav flex-column">
+        {% if 'tecnico' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'tecnico' %}active{% endif %}"
+               href="{{ url_for('tecnico') }}">
+                <i class="bi bi-tools me-2"></i>Tecnico
+            </a>
+        </li>
+        {% endif %}
+        {% if 'amministrazione' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'amministrazione' %}active{% endif %}"
+               href="{{ url_for('amministrazione') }}">
+                <i class="bi bi-receipt me-2"></i>Amministrazione
+            </a>
+        </li>
+        {% endif %}
+        {% if 'banca' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'banca' %}active{% endif %}"
+               href="{{ url_for('banca') }}">
+                <i class="bi bi-bank me-2"></i>Banca
+            </a>
+        </li>
+        {% endif %}
+        {% if 'risorse_umane' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'risorse_umane' %}active{% endif %}"
+               href="{{ url_for('risorse_umane') }}">
+                <i class="bi bi-people me-2"></i>Risorse Umane
+            </a>
+        </li>
+        {% endif %}
+        {% if 'owner' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint in ['owner','owner_ordini','owner_organigramma'] %}active{% endif %}"
+               href="{{ url_for('owner') }}">
+                <i class="bi bi-people me-2"></i>Responsabili
+            </a>
+        </li>
+        {% endif %}
+        {% if 'fornitori' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint in ['fornitori_lista','fornitore_nuovo','fornitore_modifica'] %}active{% endif %}"
+               href="{{ url_for('fornitori_lista') }}">
+                <i class="bi bi-truck me-2"></i>Fornitori
+            </a>
+        </li>
+        {% endif %}
+        {% if 'match_archivi' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint in ['match_archivi','match_archivi_ddt'] %}active{% endif %}"
+               href="{{ url_for('match_archivi') }}">
+                <i class="bi bi-archive me-2"></i>Match e Archivi
+            </a>
+        </li>
+        {% endif %}
+        {% if 'tesoreria' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'tesoreria' %}active{% endif %}"
+               href="{{ url_for('tesoreria') }}">
+                <i class="bi bi-safe2-fill me-2"></i>Tesoreria
+            </a>
+        </li>
+        {% endif %}
+        {% if 'kpi' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'kpi_dashboard' %}active{% endif %}"
+               href="{{ url_for('kpi_dashboard') }}">
+                <i class="bi bi-bar-chart-line-fill me-2"></i>KPI
+            </a>
+        </li>
+        {% endif %}
+         {% if 'admin_utenti' in sezioni %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'admin_utenti' %}active{% endif %}"
+               href="{{ url_for('admin_utenti') }}">
+                <i class="bi bi-person-gear me-2"></i>Gestione Utenti
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+
+    <!-- Utente + logout in fondo -->
+    <div class="mt-auto sidebar-footer">
+        <div class="sidebar-divider mb-2"></div>
+        <span class="badge-ruolo d-block mb-1">
+            <i class="bi bi-person-badge me-1"></i>{{ current_user.ruolo }}
+        </span>
+        <span class="text-muted d-block mb-2" style="font-size:.75rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            {{ current_user.email }}
+        </span>
+        <a href="{{ url_for('logout') }}" class="btn-logout-nav btn btn-sm w-100">
+            <i class="bi bi-box-arrow-right me-1"></i>Esci
+        </a>
+    </div>
+</div>
+
+{% endif %}
+
+<div class="{% if current_user.is_authenticated %}main-content{% else %}auth-wrapper{% endif %}">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="{% if current_user.is_authenticated %}mb-4{% endif %}">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+                {% if category == 'success' %}<i class="bi bi-check-circle-fill"></i>
+                {% elif category == 'danger' %}<i class="bi bi-exclamation-triangle-fill"></i>
+                {% elif category == 'info' %}<i class="bi bi-info-circle-fill"></i>
+                {% else %}<i class="bi bi-bell-fill"></i>{% endif %}
+                <span>{{ message }}</span>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+/* ── Scroll-reveal ─────────────────────── */
+(function () {
+    const els = document.querySelectorAll('.reveal');
+    if (!els.length) return;
+    const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    els.forEach(el => io.observe(el));
+})();
+
+/* ── Counter animation ─────────────────── */
+(function () {
+    function animateCounter(el) {
+        const raw = el.textContent.replace(/[^\d.,]/g, '').replace(',', '.');
+        const target = parseFloat(raw);
+        if (isNaN(target) || target === 0) return;
+        const isEuro = el.textContent.includes('€');
+        const duration = 650;
+        const start = performance.now();
+        function tick(now) {
+            const p = Math.min((now - start) / duration, 1);
+            const ease = 1 - Math.pow(1 - p, 3);
+            const val = target * ease;
+            el.textContent = (isEuro ? '€ ' : '') + (Number.isInteger(target) ? Math.round(val).toLocaleString('it-IT') : val.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            if (p < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+    }
+    document.querySelectorAll('.stat-number, .sub-val').forEach(el => {
+        const io = new IntersectionObserver(([e]) => {
+            if (e.isIntersecting) { animateCounter(el); io.disconnect(); }
+        }, { threshold: .5 });
+        io.observe(el);
+    });
+})();
+
+/* ── Auto-dismiss alerts after 4s ─────── */
+setTimeout(() => {
+    document.querySelectorAll('.alert').forEach(a => {
+        a.style.transition = 'opacity .5s, transform .4s';
+        a.style.opacity = '0';
+        a.style.transform = 'translateY(-8px)';
+        setTimeout(() => a.remove(), 500);
+    });
+}, 4000);
+
+/* ── Ripple effect on buttons ──────────── */
+document.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('click', function (e) {
+        const r = document.createElement('span');
+        const d = Math.max(btn.clientWidth, btn.clientHeight);
+        r.style.cssText = `position:absolute;border-radius:50%;width:${d}px;height:${d}px;
+            left:${e.clientX - btn.getBoundingClientRect().left - d/2}px;
+            top:${e.clientY - btn.getBoundingClientRect().top - d/2}px;
+            background:rgba(255,255,255,.3);transform:scale(0);
+            animation:ripple .52s linear;pointer-events:none;`;
+        if (getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
+        btn.style.overflow = 'hidden';
+        btn.appendChild(r);
+        setTimeout(() => r.remove(), 560);
+    });
+});
+</script>
+<style>
+@keyframes ripple { to { transform: scale(3.5); opacity: 0; } }
+</style>
+</body>
+</html>

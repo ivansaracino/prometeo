@@ -1,0 +1,459 @@
+{% extends 'base.html' %}
+{% block title %}Organigramma – Gestionale{% endblock %}
+{% block content %}
+
+{# ══════════════════════════════════════════════════════
+   MACRO RICORSIVA — deve stare PRIMA di ogni chiamata
+══════════════════════════════════════════════════════ #}
+{% macro render_nodo(n, livello, children_map) %}
+{% set colori = ['org-lv0','org-lv1','org-lv2','org-lv3'] %}
+{% set cls = colori[livello] if livello < 4 else colori[3] %}
+{% set ha_soglia = n.soglia_approvazione is not none %}
+{% set figli_list = children_map.get(n.id, []) %}
+<li>
+    <div class="org-card {{ cls }} {% if ha_soglia %}has-threshold{% endif %}">
+        <div class="org-card-top">
+            <div class="org-avatar">
+                <i class="bi bi-person-fill"></i>
+            </div>
+            <div class="org-card-actions">
+                <button class="btn-org-action edit" title="Modifica"
+                        onclick="apriModifica({{ n.id }},
+                            '{{ n.nome|replace("'","\\'") }}',
+                            '{{ (n.posizione or '')|replace("'","\\'") }}',
+                            {{ n.soglia_approvazione if n.soglia_approvazione is not none else 'null' }})">
+                    <i class="bi bi-pencil-fill"></i>
+                </button>
+                <button class="btn-org-action add" title="Aggiungi figlio"
+                        onclick="setParent({{ n.id }}, '{{ n.nome|replace("'","\\'") }}')"
+                        data-bs-toggle="modal" data-bs-target="#modalNuovoNodo">
+                    <i class="bi bi-person-plus-fill"></i>
+                </button>
+                <form method="POST" action="{{ url_for('elimina_nodo', nodo_id=n.id) }}" style="display:inline"
+                      onsubmit="return confirm('Eliminare {{ n.nome }}?')">
+                    <button type="submit" class="btn-org-action del" title="Elimina">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="org-nome">{{ n.nome }}</div>
+        {% if n.posizione %}
+        <div class="org-posizione">{{ n.posizione }}</div>
+        {% endif %}
+        {% if ha_soglia %}
+        <div class="org-soglia">
+            <i class="bi bi-funnel-fill me-1"></i>Soglia: € {{ '{:,.0f}'.format(n.soglia_approvazione).replace(',','.') }}
+        </div>
+        {% endif %}
+    </div>
+    {% if figli_list %}
+    <ul>
+        {% for figlio in figli_list %}
+        {{ render_nodo(figlio, livello + 1, children_map) }}
+        {% endfor %}
+    </ul>
+    {% endif %}
+</li>
+{% endmacro %}
+
+{# ══════════════════════════════════════════════════════
+   HEADER
+══════════════════════════════════════════════════════ #}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('owner') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div class="info-card card-icon icon-red" style="margin:0;padding:12px;width:48px;height:48px;font-size:1.3rem;border-radius:12px;">
+            <i class="bi bi-diagram-3-fill"></i>
+        </div>
+        <div>
+            <h1>Organigramma Aziendale</h1>
+            <p>Definisci la gerarchia e le soglie di approvazione degli ordini</p>
+        </div>
+    </div>
+    <button class="btn btn-success px-4" data-bs-toggle="modal" data-bs-target="#modalNuovoNodo"
+            onclick="setParent(null, null)">
+        <i class="bi bi-person-plus-fill me-2"></i>Aggiungi nodo
+    </button>
+</div>
+
+{# ── Barra stats ─────────────────────────────────── #}
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="info-card text-center">
+            <div class="card-icon icon-red mx-auto"><i class="bi bi-diagram-3-fill"></i></div>
+            <div class="stat-number">{{ tutti_nodi|length }}</div>
+            <div class="stat-label">Nodi totali</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="info-card text-center">
+            <div class="card-icon icon-orange mx-auto"><i class="bi bi-funnel-fill"></i></div>
+            <div class="stat-number">
+                {% if soglia_corrente %}€ {{ '%.0f'|format(soglia_corrente) }}{% else %}—{% endif %}
+            </div>
+            <div class="stat-label">Soglia approvazione attiva</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="info-card text-center">
+            <div class="card-icon icon-blue mx-auto"><i class="bi bi-people-fill"></i></div>
+            <div class="stat-number">{{ radici|length }}</div>
+            <div class="stat-label">Livelli radice</div>
+        </div>
+    </div>
+</div>
+
+{% if soglia_corrente %}
+<div class="alert d-flex align-items-center gap-3 mb-4"
+     style="background:linear-gradient(135deg,rgba(220,53,69,.12),rgba(220,53,69,.05));border:1px solid rgba(220,53,69,.3);border-radius:12px;">
+    <div style="background:rgba(220,53,69,.2);border-radius:10px;padding:10px;font-size:1.3rem;color:#ff6b7a;">
+        <i class="bi bi-shield-exclamation"></i>
+    </div>
+    <div>
+        <div class="fw-700" style="color:#ff6b7a;">Regola approvazione attiva</div>
+        <div class="text-muted small">
+            Ordini oltre <strong style="color:#e8f0fe;">€ {{ '%.0f'|format(soglia_corrente) }}</strong>
+            richiedono approvazione dal pannello Responsabili.
+            {% if not radici %}La soglia è quella predefinita — aggiungi nodi per personalizzarla.{% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not radici %}
+{# ── Stato vuoto ─────────────────────────────────── #}
+<div class="table-card">
+    <div class="empty-state py-5">
+        <div style="font-size:4rem;color:var(--border);margin-bottom:16px;">
+            <i class="bi bi-diagram-3"></i>
+        </div>
+        <div class="fw-700 mb-1" style="font-size:1.1rem;">Organigramma non ancora configurato</div>
+        <p class="text-muted small mb-4">Crea il primo nodo (es. Amministratore, CEO, Direttore) per iniziare a costruire la gerarchia aziendale.</p>
+        <button class="btn btn-success btn-lg px-5" data-bs-toggle="modal" data-bs-target="#modalNuovoNodo"
+                onclick="setParent(null,null)">
+            <i class="bi bi-person-plus-fill me-2"></i>Crea primo nodo
+        </button>
+    </div>
+</div>
+{% else %}
+
+{# ── Legenda ─────────────────────────────────────── #}
+<div class="d-flex gap-3 flex-wrap mb-3 px-1">
+    {% for lbl, cls in [('Livello 1','org-lv0'),('Livello 2','org-lv1'),('Livello 3','org-lv2'),('Livello 4+','org-lv3')] %}
+    <div class="d-flex align-items-center gap-2">
+        <div class="org-legend-dot {{ cls }}"></div>
+        <span class="small text-muted">{{ lbl }}</span>
+    </div>
+    {% endfor %}
+    <div class="d-flex align-items-center gap-2">
+        <div style="width:12px;height:12px;background:rgba(220,53,69,.3);border:1px solid #dc3545;border-radius:3px;"></div>
+        <span class="small text-muted">Con soglia approvazione</span>
+    </div>
+</div>
+
+{# ── Albero ──────────────────────────────────────── #}
+<div class="table-card" style="overflow-x:auto;">
+    <div class="org-chart-wrap">
+        <div class="org-chart">
+            <ul class="org-root">
+                {% for nodo in radici %}
+                {{ render_nodo(nodo, 0, children_map) }}
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════
+   MODAL: Nuovo Nodo
+══════════════════════════════════════════════════════ #}
+<div class="modal fade" id="modalNuovoNodo" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:20px;border:none;overflow:hidden;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#0d6efd,#0a58ca);padding:20px 24px;">
+                <h5 class="modal-title text-white fw-700 fs-6">
+                    <i class="bi bi-person-plus-fill me-2"></i>Aggiungi Nodo all'Organigramma
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('aggiungi_nodo') }}">
+                <input type="hidden" name="parent_id" id="inputParentId" value="">
+                <div class="modal-body p-4">
+                    <div id="parentBanner" class="alert py-2 mb-3 d-flex align-items-center gap-2"
+                         style="background:rgba(13,110,253,.1);border:1px solid rgba(13,110,253,.3);border-radius:10px;display:none!important;">
+                        <i class="bi bi-diagram-2 text-primary"></i>
+                        <span class="small">Figlio di: <strong id="parentNomeLbl"></strong></span>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Nome <span class="text-danger">*</span></label>
+                        <input type="text" name="nome" class="form-control" placeholder="Es. Mario Rossi" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Ruolo / Posizione</label>
+                        <input type="text" name="posizione" class="form-control" placeholder="Es. Direttore Tecnico">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-600">Soglia di approvazione (€)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" name="soglia_approvazione" class="form-control"
+                                   placeholder="Vuoto = nessun limite" step="100" min="0">
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Ordini che superano questa cifra richiederanno approvazione al livello superiore.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="bi bi-person-plus-fill me-1"></i>Aggiungi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ══════════════════════════════════════════════════════
+   MODAL: Modifica Nodo
+══════════════════════════════════════════════════════ #}
+<div class="modal fade" id="modalModificaNodo" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:20px;border:none;overflow:hidden;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#ffc107,#e0a800);padding:20px 24px;">
+                <h5 class="modal-title text-dark fw-700 fs-6">
+                    <i class="bi bi-pencil-fill me-2"></i>Modifica Nodo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="formModifica" action="">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Nome <span class="text-danger">*</span></label>
+                        <input type="text" name="nome" id="modNome" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Ruolo / Posizione</label>
+                        <input type="text" name="posizione" id="modPosizione" class="form-control">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-600">Soglia di approvazione (€)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" name="soglia_approvazione" id="modSoglia" class="form-control"
+                                   placeholder="Vuoto = nessun limite" step="100" min="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-700 px-4">
+                        <i class="bi bi-check-lg me-1"></i>Salva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ══ STILI ══════════════════════════════════════════ #}
+<style>
+/* ── Wrapper & struttura albero ──────────────────── */
+.org-chart-wrap { padding: 30px 20px; min-width: max-content; }
+.org-chart      { display: flex; justify-content: center; }
+
+/* Root list */
+.org-chart ul, .org-root {
+    display: flex;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    position: relative;
+    padding-top: 30px;
+}
+
+/* Linea verticale discendente dal centro del padre verso i figli */
+.org-chart ul::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 30px;
+    background: #4e6285;
+}
+.org-root::before { display: none; }
+
+/* Ogni LI è un nodo */
+.org-chart li {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    padding: 0 16px;
+}
+
+/* Linee orizzontali che collegano i fratelli */
+.org-chart li::before,
+.org-chart li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 2px;
+    background: #4e6285;
+}
+.org-chart li::before { right: 50%; }
+.org-chart li::after  { left:  50%; }
+
+.org-chart li:only-child::before,
+.org-chart li:only-child::after  { display: none; }
+.org-chart li:first-child::before,
+.org-chart li:last-child::after  { background: transparent; }
+
+/* ── Card nodo ───────────────────────────────────── */
+.org-card {
+    border-radius: 16px;
+    padding: 16px 18px 14px;
+    min-width: 170px;
+    max-width: 220px;
+    text-align: center;
+    position: relative;
+    transition: transform .2s, box-shadow .2s;
+    cursor: default;
+}
+.org-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0,0,0,.35) !important;
+}
+.org-card.has-threshold { border: 2px solid rgba(220,53,69,.6); }
+
+/* Livelli colore */
+.org-lv0 {
+    background: linear-gradient(145deg,#7c3d00,#b85c00);
+    box-shadow: 0 4px 18px rgba(184,92,0,.35);
+    border: 1px solid rgba(255,165,0,.25);
+}
+.org-lv1 {
+    background: linear-gradient(145deg,#0d3580,#1a52b8);
+    box-shadow: 0 4px 18px rgba(26,82,184,.35);
+    border: 1px solid rgba(100,150,255,.2);
+}
+.org-lv2 {
+    background: linear-gradient(145deg,#1a4a3a,#1e7a56);
+    box-shadow: 0 4px 18px rgba(30,122,86,.35);
+    border: 1px solid rgba(100,220,160,.2);
+}
+.org-lv3 {
+    background: linear-gradient(145deg,#3a1a6a,#6a2faa);
+    box-shadow: 0 4px 18px rgba(106,47,170,.35);
+    border: 1px solid rgba(180,120,255,.2);
+}
+
+/* ── Contenuto card ──────────────────────────────── */
+.org-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.org-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: rgba(255,255,255,.9);
+    flex-shrink: 0;
+}
+.org-card-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity .2s;
+}
+.org-card:hover .org-card-actions { opacity: 1; }
+
+.btn-org-action {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .7rem;
+    transition: transform .15s;
+}
+.btn-org-action:hover { transform: scale(1.15); }
+.btn-org-action.edit { background: rgba(255,193,7,.25); color: #ffc107; }
+.btn-org-action.add  { background: rgba(25,135,84,.25); color: #5cb85c; }
+.btn-org-action.del  { background: rgba(220,53,69,.25); color: #ff6b7a; }
+
+.org-nome {
+    font-weight: 700;
+    font-size: .95rem;
+    color: #e8f0fe;
+    margin-bottom: 3px;
+    line-height: 1.2;
+}
+.org-posizione {
+    font-size: .75rem;
+    color: rgba(232,240,254,.6);
+    margin-bottom: 6px;
+}
+.org-soglia {
+    font-size: .72rem;
+    background: rgba(220,53,69,.25);
+    color: #ffb3ba;
+    border-radius: 20px;
+    padding: 3px 10px;
+    display: inline-block;
+    border: 1px solid rgba(220,53,69,.4);
+}
+
+/* ── Legenda dot ─────────────────────────────────── */
+.org-legend-dot {
+    width: 14px; height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.org-legend-dot.org-lv0 { background: linear-gradient(145deg,#7c3d00,#b85c00); }
+.org-legend-dot.org-lv1 { background: linear-gradient(145deg,#0d3580,#1a52b8); }
+.org-legend-dot.org-lv2 { background: linear-gradient(145deg,#1a4a3a,#1e7a56); }
+.org-legend-dot.org-lv3 { background: linear-gradient(145deg,#3a1a6a,#6a2faa); }
+</style>
+
+<script>
+function setParent(parentId, parentNome) {
+    document.getElementById('inputParentId').value = parentId || '';
+    const banner = document.getElementById('parentBanner');
+    if (parentId) {
+        document.getElementById('parentNomeLbl').textContent = parentNome;
+        banner.style.setProperty('display', 'flex', 'important');
+    } else {
+        banner.style.setProperty('display', 'none', 'important');
+    }
+}
+
+function apriModifica(id, nome, posizione, soglia) {
+    document.getElementById('formModifica').action = '/owner/nodo/' + id + '/modifica';
+    document.getElementById('modNome').value      = nome;
+    document.getElementById('modPosizione').value = posizione || '';
+    document.getElementById('modSoglia').value    = soglia !== null && soglia !== undefined ? soglia : '';
+    new bootstrap.Modal(document.getElementById('modalModificaNodo')).show();
+}
+</script>
+{% endblock %}

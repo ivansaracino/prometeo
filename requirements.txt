@@ -1,0 +1,9 @@
+flask
+flask-login
+flask-sqlalchemy
+werkzeug
+pyotp
+pdfplumber
+reportlab
+Pillow
+pytesseract

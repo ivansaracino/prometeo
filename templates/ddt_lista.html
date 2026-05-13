@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+{% block title %}DDT – Gestionale{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#0891b2,#0e7490);
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="bi bi-truck" style="color:#fff;font-size:1.2rem;"></i>
+        </div>
+        <div>
+            <h1 style="font-size:1.3rem;">Documenti di Trasporto (DDT)</h1>
+            <p class="mb-0 text-muted small">Storico DDT e abbinamento fatture passive materiali</p>
+        </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if ruolo != 'tecnico' and n_revisione > 0 %}
+        <a href="{{ url_for('ddt_revisione_lista') }}" class="btn btn-outline-purple btn-sm position-relative"
+           style="border-color:#7c3aed;color:#7c3aed;">
+            <i class="bi bi-eye me-1"></i>In Revisione
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill"
+                  style="background:#7c3aed;font-size:.65rem;">{{ n_revisione }}</span>
+        </a>
+        {% endif %}
+        {% if ruolo != 'tecnico' and n_rifiutate > 0 %}
+        <a href="{{ url_for('ddt_rifiutate') }}" class="btn btn-outline-danger btn-sm position-relative">
+            <i class="bi bi-x-circle me-1"></i>Bolle Rifiutate
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                  style="font-size:.65rem;">{{ n_rifiutate }}</span>
+        </a>
+        {% endif %}
+        {% if ruolo != 'tecnico' %}
+        <a href="{{ url_for('archivi') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-archive me-1"></i>Archivi
+        </a>
+        {% endif %}
+        <a href="{{ anomali_url }}" class="btn btn-outline-warning btn-sm position-relative">
+            <i class="bi bi-exclamation-triangle me-1"></i>DDT Anomali
+            {% if n_anomali > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                  style="font-size:.65rem;">{{ n_anomali }}</span>
+            {% endif %}
+        </a>
+        <a href="{{ ft_anomale_url }}" class="btn btn-outline-danger btn-sm position-relative">
+            <i class="bi bi-file-earmark-x me-1"></i>Fatture Anomale
+            {% if n_ft_anomale > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                  style="font-size:.65rem;">{{ n_ft_anomale }}</span>
+            {% endif %}
+        </a>
+        {% if ruolo != 'tecnico' %}
+        <form method="POST" action="{{ url_for('importa_ddt_gmail') }}" style="display:inline;">
+            <button type="submit" class="btn btn-outline-success btn-sm"
+                    onclick="return confirm('Importa DDT non letti da bolleddt13@gmail.com?')"
+                    title="Connette a bolleddt13@gmail.com via IMAP e importa gli allegati PDF non letti">
+                <i class="bi bi-envelope-arrow-down me-1"></i>Importa da Gmail
+            </button>
+        </form>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuovoDDT">
+            <i class="bi bi-upload me-1"></i>Carica DDT
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- KPI -->
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#0891b2;">{{ tutti|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Tot. DDT</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#16a34a;">{{ n_abbinati }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Abbinati</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#d97706;">{{ n_anomali }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Anomali</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#0f172a;">€ {{ '%.0f'|format(tot_importo) }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Importo tot.</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ STORICO DDT ═══ -->
+{% if tutti %}
+<div class="table-card">
+    <div class="px-4 pt-3 pb-2 d-flex align-items-center gap-2">
+        <i class="bi bi-clock-history text-muted"></i>
+        <span class="fw-700" style="font-size:.9rem;">Storico DDT</span>
+        <span class="badge bg-secondary ms-1" style="font-size:.72rem;">{{ tutti|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0" style="font-size:.82rem;">
+            <thead style="background:#f8fafc;">
+                <tr>
+                    <th style="font-size:.75rem;padding-left:1.5rem;">N° DDT</th>
+                    <th style="font-size:.75rem;">Data</th>
+                    <th style="font-size:.75rem;">Fornitore</th>
+                    <th class="text-center" style="font-size:.75rem;">Cliente</th>
+                    <th class="text-center" style="font-size:.75rem;">Commessa</th>
+                    <th style="font-size:.75rem;">Descrizione</th>
+                    <th class="text-end" style="font-size:.75rem;">Importo</th>
+                    <th class="text-center" style="font-size:.75rem;">Doc.</th>
+                    <th class="text-center" style="font-size:.75rem;">Stato</th>
+                    {% if ruolo != 'tecnico' %}<th style="font-size:.75rem;"></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in tutti %}
+                <tr>
+                    <td class="fw-700" style="padding-left:1.5rem;color:#0e7490;">{{ d.numero or '—' }}</td>
+                    <td class="text-muted" style="white-space:nowrap;">
+                        {{ d.data.strftime('%d/%m/%Y') if d.data else '—' }}
+                    </td>
+                    <td>{{ d.fornitore or '—' }}</td>
+                    <td class="text-center">
+                        {% if d.commessa %}
+                        <span class="badge" style="background:#dbeafe;color:#1e40af;border-radius:6px;font-weight:700;">
+                            C{{ '%03d'|format(d.commessa.cliente.numero) if d.commessa.cliente.numero else d.codice_cliente }}
+                        </span>
+                        {% elif d.codice_cliente %}
+                        <code style="background:#f0f9ff;border-radius:4px;padding:1px 5px;color:#0369a1;">
+                            {{ d.codice_cliente }}
+                        </code>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if d.commessa %}
+                        <span class="badge" style="background:#ede9fe;color:#5b21b6;border-radius:6px;font-weight:700;">
+                            {{ d.commessa.codice }}
+                        </span>
+                        {% elif d.codice_commessa %}
+                        <code style="background:#f5f3ff;border-radius:4px;padding:1px 5px;color:#6d28d9;">
+                            {{ d.codice_commessa }}
+                        </code>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                        title="{{ d.descrizione or '' }}">
+                        {{ d.descrizione or '—' }}
+                    </td>
+                    <td class="text-end fw-700">€ {{ '%.2f'|format(d.importo) }}</td>
+                    <td class="text-center">
+                        {% if d.file_path %}
+                        <a href="{{ url_for('serve_upload', filepath=d.file_path) }}"
+                           target="_blank"
+                           class="btn btn-sm btn-outline-primary py-0 px-2"
+                           title="Apri documento DDT">
+                            <i class="bi bi-file-earmark-arrow-down" style="font-size:.8rem;"></i>
+                        </a>
+                        {% else %}
+                        <span class="text-muted" style="font-size:.75rem;">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if d.stato == 'abbinato' %}
+                        <span class="badge" style="background:#dcfce7;color:#166534;border-radius:8px;font-size:.72rem;font-weight:700;">
+                            <i class="bi bi-check-circle-fill me-1"></i>Abbinato
+                        </span>
+                        {% if d.commessa %}
+                        <div style="font-size:.68rem;color:#64748b;margin-top:2px;">
+                            {{ d.commessa.cliente.nome }} › {{ d.commessa.nome }}
+                        </div>
+                        {% endif %}
+                        {% elif d.stato == 'in_attesa_tecnico' %}
+                        <span class="badge" style="background:#dbeafe;color:#1e40af;border-radius:8px;font-size:.72rem;font-weight:700;">
+                            <i class="bi bi-hourglass-split me-1"></i>Attesa Tecnico
+                        </span>
+                        {% if d.tecnico %}
+                        <div style="font-size:.68rem;color:#64748b;margin-top:2px;">→ {{ d.tecnico.nome }}</div>
+                        {% endif %}
+                        {% elif d.stato == 'approvato_tecnico' %}
+                        <span class="badge" style="background:#d1fae5;color:#065f46;border-radius:8px;font-size:.72rem;font-weight:700;">
+                            <i class="bi bi-check2-all me-1"></i>Approvato Tecnico
+                        </span>
+                        {% elif d.stato == 'rifiutato_tecnico' %}
+                        <span class="badge" style="background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.72rem;font-weight:700;"
+                              title="{{ d.motivo_rifiuto or '' }}">
+                            <i class="bi bi-x-circle-fill me-1"></i>Rifiutato
+                        </span>
+                        {% if d.motivo_rifiuto %}
+                        <div style="font-size:.65rem;color:#b91c1c;margin-top:2px;">{{ d.motivo_rifiuto[:40] }}…</div>
+                        {% endif %}
+                        {% elif d.stato == 'importo_anomalo' %}
+                        <span class="badge" style="background:#fef3c7;color:#92400e;border-radius:8px;font-size:.72rem;font-weight:700;"
+                              title="{{ d.note_anomalia }}">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>Importo anomalo
+                        </span>
+                        {% else %}
+                        <span class="badge" style="background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.72rem;font-weight:700;"
+                              title="{{ d.note_anomalia }}">
+                            <i class="bi bi-x-circle-fill me-1"></i>Non matchato
+                        </span>
+                        {% endif %}
+                    </td>
+                    {% if ruolo != 'tecnico' %}
+                    <td>
+                        <form method="POST" action="{{ url_for('elimina_ddt', ddt_id=d.id) }}"
+                              onsubmit="return confirm('Eliminare questo DDT?')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2">
+                                <i class="bi bi-trash" style="font-size:.75rem;"></i>
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-truck" style="font-size:2.5rem;color:#94a3b8;"></i>
+    <h4 class="mt-2">Nessun DDT caricato</h4>
+    <p class="text-muted">Carica il primo DDT con il pulsante in alto a destra.</p>
+</div>
+{% endif %}
+
+
+{% if ruolo != 'tecnico' %}
+<!-- ═══ MODAL CARICA DDT ═══ -->
+<div class="modal fade" id="modalNuovoDDT" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0" style="background:#ecfeff;border-radius:16px 16px 0 0;padding:18px 24px 14px;">
+                <div>
+                    <h5 class="modal-title fw-800" style="color:#0e7490;font-size:1rem;">
+                        <i class="bi bi-upload me-2"></i>Carica DDT
+                    </h5>
+                    <p class="text-muted mb-0" style="font-size:.81rem;">
+                        Allega il documento e inserisci i dati — il sistema abbina automaticamente alle fatture materiali
+                    </p>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('nuovo_ddt') }}" enctype="multipart/form-data">
+                <div class="modal-body px-4 pt-3">
+
+                    <!-- Upload documento -->
+                    <div class="mb-3 p-3" style="border:2px dashed #a5f3fc;border-radius:12px;background:#f0fdff;cursor:pointer;"
+                         onclick="document.getElementById('fileDDT').click()">
+                        <div class="text-center" id="uploadLabel">
+                            <i class="bi bi-file-earmark-arrow-up" style="font-size:2rem;color:#0891b2;"></i>
+                            <div class="fw-700 mt-1" style="color:#0e7490;font-size:.9rem;">Allega documento DDT</div>
+                            <div class="text-muted" style="font-size:.78rem;">PDF, immagine (JPG/PNG) — clicca per scegliere il file</div>
+                        </div>
+                        <div class="text-center d-none mt-2" id="uploadPreview">
+                            <i class="bi bi-file-earmark-check" style="font-size:2rem;color:#16a34a;"></i>
+                            <div class="fw-700 mt-1" style="color:#166534;font-size:.9rem;" id="uploadFileName"></div>
+                        </div>
+                        <input type="file" id="fileDDT" name="file" class="d-none"
+                               accept=".pdf,.png,.jpg,.jpeg"
+                               onchange="mostraFile(this)">
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-700">N° DDT <span class="text-danger">*</span></label>
+                            <input type="text" name="numero" class="form-control" placeholder="Es. DDT-2026-001" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-700">Data DDT</label>
+                            <input type="date" name="data" class="form-control"
+                                   value="{{ oggi.strftime('%Y-%m-%d') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-700">Importo DDT (€) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">€</span>
+                                <input type="number" name="importo" class="form-control" step="0.01" min="0"
+                                       placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-700">Fornitore / Mittente</label>
+                            <input type="text" name="fornitore" class="form-control" placeholder="Es. Materiali Rossi srl">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-700">Descrizione materiali</label>
+                            <textarea name="descrizione" class="form-control" rows="2"
+                                      placeholder="Es. Cemento, tondini, laterizi..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Codici per matching -->
+                    <div class="mt-3 p-3" style="background:#f5f3ff;border-radius:10px;border:1px solid #ddd6fe;">
+                        <div class="fw-700 mb-2" style="font-size:.82rem;color:#6d28d9;">
+                            <i class="bi bi-link-45deg me-1"></i>Codici per abbinamento automatico
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label fw-700 mb-1" style="font-size:.8rem;">
+                                    Codice Cliente <span class="text-muted fw-400">(es. 1 o 001)</span>
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text fw-700" style="background:#e0e7ff;color:#4338ca;">C</span>
+                                    <input type="text" name="codice_cliente" class="form-control"
+                                           placeholder="001" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-700 mb-1" style="font-size:.8rem;">N° Commessa</label>
+                                <input type="number" name="codice_commessa" class="form-control form-control-sm"
+                                       placeholder="Es. 3" min="1" required>
+                            </div>
+                        </div>
+                        <div class="mt-2" style="font-size:.72rem;color:#7c3aed;">
+                            <i class="bi bi-robot me-1"></i>
+                            Il sistema cerca una fattura passiva materiali con questi codici e confronta l'importo.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0" style="background:#ecfeff;border-radius:0 0 16px 16px;padding:12px 24px;">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary" style="background:#0891b2;border-color:#0891b2;">
+                        <i class="bi bi-upload me-1"></i>Carica e Abbina
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function mostraFile(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById('uploadLabel').classList.add('d-none');
+        document.getElementById('uploadPreview').classList.remove('d-none');
+        document.getElementById('uploadFileName').textContent = input.files[0].name;
+    }
+}
+</script>
+{% endif %}
+
+{% endblock %}

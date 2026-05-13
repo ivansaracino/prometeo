@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% block title %}DDT Anomali – Gestionale{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ lista_url }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1 style="font-size:1.3rem;">
+                <i class="bi bi-exclamation-triangle text-warning me-2"></i>DDT Non Matchati / Importo Anomalo
+            </h1>
+            <p class="mb-0 text-muted small">DDT senza corrispondenza o con importo superiore alle fatture materiali</p>
+        </div>
+    </div>
+    <a href="{{ ft_anomale_url }}" class="btn btn-outline-danger btn-sm">
+        <i class="bi bi-file-earmark-x me-1"></i>Fatture Anomale
+    </a>
+</div>
+
+<!-- KPI -->
+<div class="row g-2 mb-3">
+    <div class="col-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#dc2626;">{{ non_matchati|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Non matchati</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#d97706;">{{ importo_anomalo|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Importo anomalo</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.5rem;color:#0f172a;">
+                € {{ '%.0f'|format((non_matchati + importo_anomalo) | sum(attribute='importo')) }}
+            </div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Importo tot.</div>
+        </div>
+    </div>
+</div>
+
+<!-- DDT Non Matchati -->
+{% if non_matchati %}
+<div class="table-card mb-4">
+    <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <span style="width:10px;height:10px;border-radius:50%;background:#dc2626;flex-shrink:0;"></span>
+        <h5 class="mb-0 fw-700" style="font-size:.95rem;color:#991b1b;">DDT Non Matchati</h5>
+        <span class="badge bg-danger ms-auto">{{ non_matchati|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="font-size:.78rem;">N° DDT</th>
+                    <th style="font-size:.78rem;">Data</th>
+                    <th style="font-size:.78rem;">Fornitore</th>
+                    <th class="text-center" style="font-size:.78rem;">Cod. Cliente</th>
+                    <th class="text-center" style="font-size:.78rem;">Cod. Comm.</th>
+                    <th class="text-end" style="font-size:.78rem;">Importo</th>
+                    <th style="font-size:.78rem;">Motivo anomalia</th>
+                    <th style="font-size:.78rem;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in non_matchati %}
+                <tr style="background:#fff1f2;">
+                    <td class="fw-700" style="font-size:.84rem;">{{ d.numero or '—' }}</td>
+                    <td class="text-muted" style="font-size:.78rem;white-space:nowrap;">
+                        {{ d.data.strftime('%d/%m/%Y') if d.data else '—' }}
+                    </td>
+                    <td style="font-size:.82rem;">{{ d.fornitore or '—' }}</td>
+                    <td class="text-center" style="font-size:.78rem;">
+                        <code style="background:#fee2e2;border-radius:4px;padding:1px 5px;color:#991b1b;">
+                            C{{ '%03d'|format(d.codice_cliente|int) if d.codice_cliente and d.codice_cliente.isdigit() else (d.codice_cliente or '—') }}
+                        </code>
+                    </td>
+                    <td class="text-center" style="font-size:.78rem;">
+                        <code style="background:#fee2e2;border-radius:4px;padding:1px 5px;color:#991b1b;">
+                            {{ d.codice_commessa or '—' }}
+                        </code>
+                    </td>
+                    <td class="text-end fw-700" style="font-size:.84rem;">€ {{ '%.2f'|format(d.importo) }}</td>
+                    <td style="font-size:.75rem;color:#991b1b;">
+                        <i class="bi bi-x-circle me-1"></i>{{ d.note_anomalia or '—' }}
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('elimina_ddt', ddt_id=d.id) }}"
+                              onsubmit="return confirm('Eliminare questo DDT?')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2">
+                                <i class="bi bi-trash" style="font-size:.75rem;"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- DDT Importo Anomalo -->
+{% if importo_anomalo %}
+<div class="table-card mb-4">
+    <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <span style="width:10px;height:10px;border-radius:50%;background:#d97706;flex-shrink:0;"></span>
+        <h5 class="mb-0 fw-700" style="font-size:.95rem;color:#92400e;">DDT Non Matchati – Importo Anomalo</h5>
+        <span class="badge bg-warning text-dark ms-auto">{{ importo_anomalo|length }}</span>
+    </div>
+    <div class="p-3 border-bottom" style="background:#fffbeb;font-size:.8rem;color:#78350f;">
+        <i class="bi bi-info-circle me-1"></i>
+        Questi DDT sono stati abbinati a una commessa, ma il loro importo <strong>supera</strong>
+        il totale delle fatture passive materiali registrate per quella commessa.
+        Verificare con il fornitore o aggiornare le fatture.
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="font-size:.78rem;">N° DDT</th>
+                    <th style="font-size:.78rem;">Data</th>
+                    <th style="font-size:.78rem;">Fornitore</th>
+                    <th style="font-size:.78rem;">Commessa</th>
+                    <th class="text-end" style="font-size:.78rem;">Importo DDT</th>
+                    <th class="text-end" style="font-size:.78rem;">Fattura rif.</th>
+                    <th style="font-size:.78rem;">Dettaglio anomalia</th>
+                    <th style="font-size:.78rem;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in importo_anomalo %}
+                <tr style="background:#fffbeb;">
+                    <td class="fw-700" style="font-size:.84rem;">{{ d.numero or '—' }}</td>
+                    <td class="text-muted" style="font-size:.78rem;white-space:nowrap;">
+                        {{ d.data.strftime('%d/%m/%Y') if d.data else '—' }}
+                    </td>
+                    <td style="font-size:.82rem;">{{ d.fornitore or '—' }}</td>
+                    <td style="font-size:.78rem;">
+                        {% if d.commessa %}
+                        <span class="fw-600 text-primary">{{ d.commessa.cliente.nome }} › {{ d.commessa.nome }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-end fw-700 text-danger" style="font-size:.84rem;">
+                        € {{ '%.2f'|format(d.importo) }}
+                    </td>
+                    <td class="text-end text-muted" style="font-size:.78rem;">
+                        {% if d.fattura %}€ {{ '%.2f'|format(d.fattura.importo) }}{% else %}—{% endif %}
+                    </td>
+                    <td style="font-size:.74rem;color:#92400e;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>{{ d.note_anomalia or '—' }}
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('elimina_ddt', ddt_id=d.id) }}"
+                              onsubmit="return confirm('Eliminare questo DDT?')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2">
+                                <i class="bi bi-trash" style="font-size:.75rem;"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if not non_matchati and not importo_anomalo %}
+<div class="empty-state">
+    <i class="bi bi-check-circle text-success" style="font-size:2.5rem;"></i>
+    <h4 class="mt-2">Nessuna anomalia DDT</h4>
+    <p class="text-muted">Tutti i DDT caricati sono regolarmente abbinati alle fatture.</p>
+</div>
+{% endif %}
+
+{% endblock %}

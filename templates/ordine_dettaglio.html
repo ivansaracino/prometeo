@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Ordine #{{ '%04d'|format(ordine.id) }} – {{ cliente.nome }}{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('ordini_lista', cliente_id=cliente.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Ordine <code>ORD-{{ '%04d'|format(ordine.id) }}</code></h1>
+            <p class="mb-0"><span class="text-muted">Cliente:</span> <strong>{{ cliente.nome }}</strong></p>
+        </div>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        {% if ordine.stato == 'approvato' %}
+            <span class="status status-ok fs-6"><i class="bi bi-check-circle-fill me-1"></i>Approvato</span>
+        {% elif ordine.stato == 'in_attesa' %}
+            <span class="status status-pending fs-6"><i class="bi bi-hourglass-split me-1"></i>In attesa di approvazione</span>
+        {% elif ordine.stato == 'rifiutato' %}
+            <span class="status status-danger fs-6"><i class="bi bi-x-circle-fill me-1"></i>Rifiutato</span>
+        {% else %}
+            <span class="status fs-6" style="background:#f1f5f9;color:#64748b;">Bozza</span>
+        {% endif %}
+
+        <a href="{{ url_for('ordine_pdf', ordine_id=ordine.id) }}"
+           class="btn btn-sm fw-700"
+           style="background:linear-gradient(135deg,#1e1b4b,#4338ca);color:#fff;border:none;box-shadow:0 3px 12px rgba(30,27,75,.35);">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Scarica PDF
+        </a>
+        {% if ordine.stato == 'approvato' %}
+        <form method="POST" action="{{ url_for('crea_fattura_da_ordine', ordine_id=ordine.id) }}"
+              onsubmit="return confirm('Creare una fattura attiva automatica da questo ordine (€ {{ '%.2f'|format(ordine.totale) }})?')">
+            <button type="submit" class="btn btn-sm fw-700"
+                    style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;box-shadow:0 3px 12px rgba(5,150,105,.30);">
+                <i class="bi bi-file-earmark-plus-fill me-1"></i>Crea Fattura Attiva
+            </button>
+        </form>
+        {% endif %}
+
+        <button type="button" class="btn btn-sm btn-outline-danger fw-700"
+                onclick="confermaElimina()">
+            <i class="bi bi-trash3 me-1"></i>Elimina
+        </button>
+        <form id="frmElimina" method="POST"
+              action="{{ url_for('elimina_ordine', ordine_id=ordine.id) }}" class="d-none"></form>
+    </div>
+</div>
+
+<script>
+function confermaElimina() {
+    if (confirm('Eliminare definitivamente ORD-{{ "%04d"|format(ordine.id) }}?\nQuesta azione non può essere annullata.')) {
+        document.getElementById('frmElimina').submit();
+    }
+}
+</script>
+
+<!-- Dati intestazione -->
+<div class="table-card p-4 mb-4">
+    <h6 class="fw-700 text-muted text-uppercase mb-3" style="font-size:.8rem;letter-spacing:.8px;">Dati Ordine</h6>
+    <div class="row g-3">
+        <div class="col-sm-6 col-md-3">
+            <div class="text-muted small mb-1">Azienda</div>
+            <div class="fw-600">{{ ordine.azienda or '—' }}</div>
+        </div>
+        <div class="col-sm-6 col-md-3">
+            <div class="text-muted small mb-1">P.IVA</div>
+            <div class="fw-600">{{ ordine.piva or '—' }}</div>
+        </div>
+        <div class="col-sm-6 col-md-3">
+            <div class="text-muted small mb-1">RIF Ordine</div>
+            <div class="fw-600">{{ ordine.rif_ordine or '—' }}</div>
+        </div>
+        <div class="col-sm-6 col-md-3">
+            <div class="text-muted small mb-1">Data</div>
+            <div class="fw-600">{{ ordine.creato_il.strftime('%d/%m/%Y') }}</div>
+        </div>
+        <div class="col-sm-6 col-md-4">
+            <div class="text-muted small mb-1">Dati Cantiere</div>
+            <div class="fw-600">{{ ordine.dati_cantiere or '—' }}</div>
+        </div>
+        <div class="col-sm-6 col-md-4">
+            <div class="text-muted small mb-1">Indirizzo</div>
+            <div class="fw-600">{{ ordine.indirizzo or '—' }}</div>
+        </div>
+        <div class="col-sm-6 col-md-2">
+            <div class="text-muted small mb-1">RIF Cantiere</div>
+            <div class="fw-600">{{ ordine.rif_cantiere or '—' }}</div>
+        </div>
+        {% if ordine.note %}
+        <div class="col-12">
+            <div class="text-muted small mb-1">Note</div>
+            <div class="fw-600">{{ ordine.note }}</div>
+        </div>
+        {% endif %}
+        {% if ordine.cig %}
+        <div class="col-sm-6">
+            <div class="text-muted small mb-1">CIG</div>
+            <div class="fw-600 font-monospace">{{ ordine.cig }}</div>
+        </div>
+        {% endif %}
+        {% if ordine.cup %}
+        <div class="col-sm-6">
+            <div class="text-muted small mb-1">CUP</div>
+            <div class="fw-600 font-monospace">{{ ordine.cup }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Righe ordine -->
+<div class="table-card mb-4">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>N.</th>
+                    <th>Descrizione</th>
+                    <th class="text-end">Qtà</th>
+                    <th>U.M.</th>
+                    <th class="text-end">Prezzo Unit.</th>
+                    <th class="text-end">Totale</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for riga in ordine.righe %}
+                <tr>
+                    <td class="text-muted">{{ riga.numero }}</td>
+                    <td>{{ riga.descrizione }}</td>
+                    <td class="text-end">{{ riga.qta }}</td>
+                    <td class="text-muted">{{ riga.unita_misura or '—' }}</td>
+                    <td class="text-end">€ {{ '%.2f'|format(riga.prezzo_unitario) }}</td>
+                    <td class="text-end fw-700">€ {{ '%.2f'|format(riga.totale) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#f0f4f8;">
+                    <td colspan="5" class="text-end fw-700">TOTALE ORDINE</td>
+                    <td class="text-end fw-800 fs-5 {% if ordine.totale > soglia %}text-danger{% else %}text-primary{% endif %}">
+                        € {{ '%.2f'|format(ordine.totale) }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+{% if ordine.totale > soglia and ordine.stato == 'in_attesa' %}
+<div class="alert alert-warning">
+    <i class="bi bi-hourglass-split me-2"></i>
+    Questo ordine supera la soglia di <strong>€ {{ '%.2f'|format(soglia) }}</strong> e deve essere approvato dall'Owner.
+</div>
+{% endif %}
+{% endblock %}

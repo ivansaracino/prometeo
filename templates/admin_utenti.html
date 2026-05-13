@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% block title %}Gestione Utenti – Gestionale{% endblock %}
+{% block content %}
+<div class="page-header d-flex align-items-center gap-3">
+    <div class="info-card card-icon icon-red" style="margin:0; padding:12px; width:48px; height:48px; font-size:1.3rem; border-radius:12px;">
+        <i class="bi bi-people-fill"></i>
+    </div>
+    <div>
+        <h1>Gestione Utenti</h1>
+        <p>Modifica ruoli, nome e stato degli account registrati</p>
+    </div>
+</div>
+
+<!-- Statistiche rapide -->
+<div class="row g-4 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card">
+            <div class="card-icon icon-blue"><i class="bi bi-people"></i></div>
+            <div class="stat-number">{{ utenti | length }}</div>
+            <div class="stat-label">Utenti Totali</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card">
+            <div class="card-icon icon-green"><i class="bi bi-person-check"></i></div>
+            <div class="stat-number">{{ utenti | selectattr('attivo') | list | length }}</div>
+            <div class="stat-label">Account Attivi</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card">
+            <div class="card-icon icon-red"><i class="bi bi-person-x"></i></div>
+            <div class="stat-number">{{ utenti | rejectattr('attivo') | list | length }}</div>
+            <div class="stat-label">Account Disabilitati</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="info-card">
+            <div class="card-icon icon-purple"><i class="bi bi-shield-star"></i></div>
+            <div class="stat-number">{{ utenti | selectattr('ruolo', 'equalto', 'Direzione') | list | length }}</div>
+            <div class="stat-label">Utenti Direzione</div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert visibilità tecnici -->
+<div class="alert d-flex align-items-start gap-3 mb-4" style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:14px 18px;">
+    <i class="bi bi-info-circle-fill text-primary mt-1 flex-shrink-0"></i>
+    <div style="font-size:.85rem;">
+        <strong>Visibilità per ruolo</strong> — I tecnici vedono solo i clienti/commesse dove il campo <em>Owner</em> corrisponde al loro <strong>Nome</strong>.
+        La Direzione vede tutto. Assicurati che il <em>Nome</em> di ogni tecnico coincida esattamente con l'owner assegnato sui cantieri.
+    </div>
+</div>
+
+<!-- Tabella utenti -->
+<div class="table-card">
+    <div class="p-4 border-bottom">
+        <h5 class="mb-0 fw-bold">Tutti gli Utenti Registrati</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Telefono</th>
+                    <th>Ruolo</th>
+                    <th>Registrato il</th>
+                    <th>Stato</th>
+                    <th style="min-width:180px">Cambia Ruolo</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in utenti %}
+                <tr class="{% if not u.attivo %}table-secondary opacity-60{% endif %}">
+                    <td><code>#{{ u.id }}</code></td>
+                    <td>
+                        {% if u.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('cambia_nome', user_id=u.id) }}"
+                              class="d-flex align-items-center gap-1" style="min-width:150px;">
+                            <input type="text" name="nome" value="{{ u.nome or '' }}"
+                                   class="form-control form-control-sm"
+                                   placeholder="Nome Cognome"
+                                   style="border-color:{% if u.ruolo=='Tecnico' %}#fbbf24{% else %}#e2e8f0{% endif %};">
+                            <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0" title="Salva nome">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </form>
+                        {% if u.ruolo == 'Tecnico' and not u.nome %}
+                        <div style="font-size:.7rem;color:#dc2626;margin-top:2px;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>Nome mancante — il tecnico non vedrà nessun cantiere
+                        </div>
+                        {% endif %}
+                        {% else %}
+                        <span class="fw-600">{{ u.nome or '—' }}</span>
+                        <span class="badge bg-secondary ms-1" style="font-size:.7rem">Tu</span>
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ u.email }}</strong></td>
+                    <td>{{ u.telefono }}</td>
+                    <td>
+                        <span class="badge ruolo-badge ruolo-{{ u.ruolo | lower | replace(' ', '-') }}">
+                            {{ u.ruolo }}
+                        </span>
+                    </td>
+                    <td style="font-size:.85rem; color:var(--text-muted)">
+                        {{ u.creato_il.strftime('%d/%m/%Y %H:%M') }}
+                    </td>
+                    <td>
+                        {% if u.attivo %}
+                        <span class="status status-ok"><i class="bi bi-circle-fill" style="font-size:.45rem"></i>Attivo</span>
+                        {% else %}
+                        <span class="status status-danger"><i class="bi bi-circle-fill" style="font-size:.45rem"></i>Disabilitato</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('cambia_ruolo', user_id=u.id) }}" class="d-flex gap-2 align-items-center">
+                            <select name="nuovo_ruolo" class="form-select form-select-sm" style="min-width:130px">
+                                {% for r in ruoli %}
+                                <option value="{{ r }}" {% if r == u.ruolo %}selected{% endif %}>{{ r }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Salva">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted" style="font-size:.82rem"><i class="bi bi-lock me-1"></i>Account corrente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('toggle_stato', user_id=u.id) }}"
+                              onsubmit="return confirm('{{ 'Disabilitare' if u.attivo else 'Riabilitare' }} l\'utente {{ u.email }}?')">
+                            {% if u.attivo %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Disabilita account">
+                                <i class="bi bi-person-x me-1"></i>Disabilita
+                            </button>
+                            {% else %}
+                            <button type="submit" class="btn btn-sm btn-outline-success" title="Riabilita account">
+                                <i class="bi bi-person-check me-1"></i>Riabilita
+                            </button>
+                            {% endif %}
+                        </form>
+                        {% else %}
+                        <span class="text-muted" style="font-size:.82rem">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                        Nessun utente registrato ancora.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.ruolo-badge { font-size: .78rem; padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+.ruolo-tecnico         { background:#dbeafe; color:#1d4ed8; }
+.ruolo-amministrativo  { background:#ffedd5; color:#c2410c; }
+.ruolo-direzione       { background:#fee2e2; color:#b91c1c; }
+.ruolo-risorse-umane   { background:#ede9fe; color:#6d28d9; }
+.opacity-60 { opacity: .6; }
+</style>
+{% endblock %}

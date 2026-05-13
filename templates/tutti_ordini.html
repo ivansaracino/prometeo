@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% block title %}Tutti gli Ordini – Gestionale{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('tecnico') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Tutti gli Ordini</h1>
+            <p class="mb-0 text-muted small">Vista globale — tutti i clienti accessibili</p>
+        </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <div class="input-group" style="max-width:300px;">
+            <span class="input-group-text bg-white border-end-0">
+                <i class="bi bi-search text-muted"></i>
+            </span>
+            <input type="text" id="searchOrdini" class="form-control border-start-0 ps-0"
+                   placeholder="Cerca cliente, rif, azienda…" oninput="filtraOrdini(this.value)">
+        </div>
+    </div>
+</div>
+
+<!-- KPI bar -->
+{% set tot_approvati = ordini | selectattr('stato','equalto','approvato') | list %}
+{% set tot_attesa    = ordini | selectattr('stato','equalto','in_attesa') | list %}
+{% set tot_valore    = ordini | sum(attribute='totale') %}
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.4rem;color:#1d4ed8;">{{ ordini|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Totale ordini</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.4rem;color:#16a34a;">{{ tot_approvati|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Approvati</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.4rem;color:#d97706;">{{ tot_attesa|length }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">In attesa</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="table-card py-2 px-3 text-center">
+            <div class="fw-800" style="font-size:1.15rem;color:#0f172a;">€ {{ '{:,.0f}'.format(tot_valore) }}</div>
+            <div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Valore totale</div>
+        </div>
+    </div>
+</div>
+
+{% if ordini %}
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0" id="tblOrdini">
+            <thead>
+                <tr>
+                    <th style="font-size:.78rem;">#</th>
+                    <th style="font-size:.78rem;">Cliente</th>
+                    <th style="font-size:.78rem;">Azienda</th>
+                    <th style="font-size:.78rem;">RIF</th>
+                    <th style="font-size:.78rem;">Cantiere</th>
+                    <th style="font-size:.78rem;">Data</th>
+                    <th class="text-end" style="font-size:.78rem;">Totale</th>
+                    <th class="text-center" style="font-size:.78rem;">Stato</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ordine in ordini %}
+                <tr class="ordine-row"
+                    data-search="{{ (ordine.cliente.nome ~ ' ' ~ (ordine.azienda or '') ~ ' ' ~ (ordine.rif_ordine or '') ~ ' ' ~ (ordine.dati_cantiere or '') ~ ' ' ~ (ordine.indirizzo or '')) | lower }}">
+                    <td><code style="font-size:.78rem;">ORD-{{ '%04d'|format(ordine.id) }}</code></td>
+                    <td>
+                        <a href="{{ url_for('ordini_lista', cliente_id=ordine.cliente_id) }}"
+                           class="fw-700 text-decoration-none" style="font-size:.84rem;color:#1e40af;">
+                            {{ ordine.cliente.nome }}
+                        </a>
+                    </td>
+                    <td style="font-size:.82rem;">{{ ordine.azienda or '—' }}</td>
+                    <td class="text-muted" style="font-size:.78rem;">{{ ordine.rif_ordine or '—' }}</td>
+                    <td style="font-size:.78rem;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        {% if ordine.dati_cantiere or ordine.indirizzo %}
+                        <span class="text-muted" title="{{ ordine.dati_cantiere or '' }} {{ ordine.indirizzo or '' }}">
+                            {{ (ordine.dati_cantiere or ordine.indirizzo or '') | truncate(30, true, '…') }}
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-muted" style="font-size:.78rem;">{{ ordine.creato_il.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-end fw-700" style="font-size:.84rem;">
+                        € {{ '%.2f'|format(ordine.totale) }}
+                        {% if ordine.totale > soglia %}
+                        <i class="bi bi-exclamation-triangle text-warning ms-1"
+                           title="Supera soglia approvazione (€ {{ '%.0f'|format(soglia) }})"></i>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if ordine.stato == 'approvato' %}
+                            <span class="status status-ok" style="font-size:.72rem;">
+                                <i class="bi bi-check-circle-fill"></i> Approvato
+                            </span>
+                        {% elif ordine.stato == 'in_attesa' %}
+                            <span class="status status-pending" style="font-size:.72rem;">
+                                <i class="bi bi-hourglass-split"></i> In attesa
+                            </span>
+                        {% else %}
+                            <span class="status" style="font-size:.72rem;">{{ ordine.stato }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('ordine_dettaglio', ordine_id=ordine.id) }}"
+                           class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:.78rem;">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-file-earmark-x"></i>
+    <h4>Nessun ordine</h4>
+    <p class="text-muted">Non ci sono ordini emessi per i cantieri accessibili.</p>
+</div>
+{% endif %}
+
+<script>
+function filtraOrdini(q) {
+    q = q.toLowerCase().trim();
+    document.querySelectorAll('.ordine-row').forEach(r => {
+        r.style.display = (!q || r.dataset.search.includes(q)) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Risorse Umane – Gestionale{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-3">
+        <div class="info-card card-icon icon-purple" style="margin:0;padding:12px;width:48px;height:48px;font-size:1.3rem;border-radius:12px;">
+            <i class="bi bi-people-fill"></i>
+        </div>
+        <div>
+            <h1>Risorse Umane</h1>
+            <p>Gestione dipendenti, documenti e corsi</p>
+        </div>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuovoDipendente">
+        <i class="bi bi-person-plus me-2"></i>Nuovo Dipendente
+    </button>
+</div>
+
+<!-- Riepilogo -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="info-card text-center">
+            <div class="card-icon icon-blue mx-auto"><i class="bi bi-people"></i></div>
+            <div class="stat-number">{{ dipendenti|length }}</div>
+            <div class="stat-label">Dipendenti</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="info-card text-center">
+            <div class="card-icon icon-orange mx-auto"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-number">{{ alert_corsi.values()|sum }}</div>
+            <div class="stat-label">Corsi in Scadenza</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="info-card text-center">
+            <div class="card-icon icon-green mx-auto"><i class="bi bi-euro"></i></div>
+            <div class="stat-number">
+                {% if dipendenti %}
+                    € {{ '%.2f'|format(dipendenti|map(attribute='costo_orario')|sum / dipendenti|length) }}
+                {% else %}—{% endif %}
+            </div>
+            <div class="stat-label">Costo Orario Medio</div>
+        </div>
+    </div>
+</div>
+
+{% if dipendenti %}
+<div class="row g-4">
+    {% for d in dipendenti %}
+    <div class="col-sm-6 col-lg-4 col-xl-3">
+        <div class="cartella-cliente">
+            <div class="cartella-top" style="background:#6d28d9;border-color:#6d28d9;"></div>
+            <div class="cartella-corpo">
+                {% if alert_corsi[d.id] > 0 %}
+                <div class="alert alert-warning py-1 px-2 mb-2 small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    {{ alert_corsi[d.id] }} corso/i in scadenza
+                </div>
+                {% endif %}
+                <div class="cartella-icona" style="color:#6d28d9;">
+                    <i class="bi bi-person-circle"></i>
+                </div>
+                <div class="cartella-nome">{{ d.cognome }} {{ d.nome }}</div>
+                <div class="text-muted small mb-1">
+                    Costo: <strong>€ {{ '%.2f'|format(d.costo_orario) }}/ora</strong>
+                </div>
+                <div class="text-muted small mb-3">
+                    Da {{ d.creato_il.strftime('%d/%m/%Y') }}
+                </div>
+                <a href="{{ url_for('dipendente_dettaglio', dipendente_id=d.id) }}"
+                   class="btn btn-sm btn-outline-primary w-100 mb-2">
+                    <i class="bi bi-folder2-open me-1"></i>Apri Cartella
+                </a>
+                <form method="POST" action="{{ url_for('elimina_dipendente', dipendente_id=d.id) }}"
+                      onsubmit="return confirm('Eliminare {{ d.nome }} {{ d.cognome }} e tutti i suoi documenti?')">
+                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">
+                        <i class="bi bi-trash me-1"></i>Elimina
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-person-plus"></i>
+    <h4>Nessun dipendente</h4>
+    <p class="text-muted">Clicca su "Nuovo Dipendente" per aggiungere il primo.</p>
+</div>
+{% endif %}
+
+<!-- Modal Nuovo Dipendente -->
+<div class="modal fade" id="modalNuovoDipendente" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-700"><i class="bi bi-person-plus me-2 text-primary"></i>Nuovo Dipendente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('nuovo_dipendente') }}">
+                <div class="modal-body pt-3">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label">Nome</label>
+                            <input type="text" name="nome" class="form-control" placeholder="Mario" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Cognome</label>
+                            <input type="text" name="cognome" class="form-control" placeholder="Rossi" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Aggiungi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

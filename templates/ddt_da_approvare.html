@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Bolle da Approvare{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <h2 class="fw-bold mb-0"><i class="bi bi-truck me-2 text-warning"></i>Bolle da Approvare</h2>
+    <span class="badge bg-warning text-dark fs-6">{{ bolle|length }}</span>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if not bolle %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-check2-circle display-3 text-success mb-3 d-block"></i>
+        <h5>Nessuna bolla in attesa di approvazione</h5>
+        <p class="mb-0">Tutte le bolle assegnate sono state gestite.</p>
+        <a href="{{ url_for('tecnico') }}" class="btn btn-outline-secondary mt-3">
+          <i class="bi bi-arrow-left me-1"></i>Torna alla Dashboard
+        </a>
+      </div>
+    </div>
+  {% else %}
+    {% for ddt in bolle %}
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
+        <div>
+          <span class="fw-bold fs-5"><i class="bi bi-file-earmark-text me-2"></i>Bolla N° {{ ddt.numero or '—' }}</span>
+          {% if ddt.data %}
+            <span class="text-muted ms-3 small">{{ ddt.data.strftime('%d/%m/%Y') }}</span>
+          {% endif %}
+        </div>
+        <span class="badge bg-warning text-dark">In attesa di approvazione</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <!-- Colonna info -->
+          <div class="col-lg-5">
+            <table class="table table-sm table-borderless mb-0">
+              <tr><th class="text-muted fw-normal" style="width:140px">Fornitore</th>
+                  <td class="fw-semibold">{{ ddt.fornitore or '—' }}</td></tr>
+              <tr><th class="text-muted fw-normal">Commessa</th>
+                  <td>{% if ddt.commessa %}<span class="badge bg-primary">{{ ddt.commessa.codice }}</span>
+                      {{ ddt.commessa.nome }}<br><small class="text-muted">{{ ddt.commessa.cliente.nome if ddt.commessa.cliente else '' }}</small>
+                      {% else %}<span class="text-muted">Non abbinata</span>{% endif %}</td></tr>
+              <tr><th class="text-muted fw-normal">Importo</th>
+                  <td class="fw-bold text-success">€ {{ '%.2f'|format(ddt.importo or 0) }}</td></tr>
+              {% if ddt.indirizzo_cantiere %}
+              <tr><th class="text-muted fw-normal">Indirizzo cantiere</th>
+                  <td><small>{{ ddt.indirizzo_cantiere }}</small></td></tr>
+              {% endif %}
+              {% if ddt.descrizione %}
+              <tr><th class="text-muted fw-normal">Descrizione</th>
+                  <td><small>{{ ddt.descrizione }}</small></td></tr>
+              {% endif %}
+            </table>
+            <!-- Pulsanti azione -->
+            <div class="mt-3 d-flex gap-2">
+              <!-- APPROVA -->
+              <form method="POST" action="{{ url_for('approva_bolla', ddt_id=ddt.id) }}"
+                    onsubmit="return confirm('Confermi l\'approvazione di questa bolla?')">
+                <button type="submit" class="btn btn-success">
+                  <i class="bi bi-check-lg me-1"></i>Approva
+                </button>
+              </form>
+              <!-- RIFIUTA (toggle form) -->
+              <button class="btn btn-outline-danger" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#rifiuta-{{ ddt.id }}">
+                <i class="bi bi-x-lg me-1"></i>Rifiuta
+              </button>
+            </div>
+            <!-- Form rifiuto -->
+            <div class="collapse mt-3" id="rifiuta-{{ ddt.id }}">
+              <div class="card border-danger border-opacity-50">
+                <div class="card-body bg-danger bg-opacity-5">
+                  <form method="POST" action="{{ url_for('rifiuta_bolla', ddt_id=ddt.id) }}">
+                    <label class="form-label fw-semibold text-danger">
+                      <i class="bi bi-exclamation-triangle me-1"></i>Motivo del rifiuto
+                    </label>
+                    <textarea name="motivo" class="form-control mb-2" rows="3"
+                              placeholder="Descrivi il problema riscontrato..." required></textarea>
+                    <button type="submit" class="btn btn-danger">
+                      <i class="bi bi-x-circle me-1"></i>Conferma Rifiuto
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary ms-2"
+                            data-bs-toggle="collapse" data-bs-target="#rifiuta-{{ ddt.id }}">
+                      Annulla
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Colonna PDF -->
+          <div class="col-lg-7">
+            {% if ddt.file_path %}
+              <div class="ratio" style="--bs-aspect-ratio:75%">
+                <iframe src="{{ url_for('serve_upload', filepath=ddt.file_path) }}"
+                        class="border rounded" style="border-color:#dee2e6!important">
+                </iframe>
+              </div>
+              <div class="mt-1 text-end">
+                <a href="{{ url_for('serve_upload', filepath=ddt.file_path) }}"
+                   target="_blank" class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-box-arrow-up-right me-1"></i>Apri PDF
+                </a>
+              </div>
+            {% else %}
+              <div class="d-flex align-items-center justify-content-center h-100 text-muted border rounded" style="min-height:200px">
+                <span><i class="bi bi-file-earmark-x display-4 d-block mb-2 text-center"></i>Nessun file allegato</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

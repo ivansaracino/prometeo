@@ -1,0 +1,523 @@
+{% extends 'base.html' %}
+{% block title %}KPI Commesse – Gestionale{% endblock %}
+{% block content %}
+
+{# ── Calcoli globali ─────────────────────────────────────────────── #}
+{% set tot_attivo  = righe | sum(attribute='attivo') %}
+{% set tot_sub_mat = righe | map(attribute='c_sub') | sum + righe | map(attribute='c_mat') | sum %}
+{% set k1_globale  = (tot_attivo / tot_sub_mat) if tot_sub_mat > 0 else none %}
+{% set n_ok      = righe | selectattr('k1_color','equalto','success') | list | length %}
+{% set n_warning = righe | selectattr('k1_color','equalto','warning') | list | length %}
+{% set n_danger  = righe | selectattr('k1_color','equalto','danger')  | list | length %}
+
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── header ─────────────────────────────────── */
+.kpi-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.kpi-title {
+    font-size: 18px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #111827;
+}
+.kpi-title-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: #E6F1FB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #185FA5;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.kpi-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 3px;
+    font-weight: 400;
+}
+
+/* stato globale pill */
+.stato-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: .4rem 1rem;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 0.5px solid;
+}
+.stato-pos  { color: #085041; background: #9FE1CB; border-color: #1D9E75; }
+.stato-warn { color: #633806; background: #FAC775; border-color: #BA7517; }
+.stato-neg  { color: #791F1F; background: #F7C1C1; border-color: #E24B4A; }
+
+/* mini stats */
+.mini-stats {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-top: 6px;
+}
+.mini-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: .25rem .7rem;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 0.5px solid;
+}
+.ms-ok   { color: #085041; background: #E1F5EE; border-color: #5DCAA5; }
+.ms-warn { color: #633806; background: #FAEEDA; border-color: #EF9F27; }
+.ms-bad  { color: #791F1F; background: #FCEBEB; border-color: #F09595; }
+
+/* ── summary cards ──────────────────────────── */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 1.25rem;
+}
+.scard {
+    border-radius: 10px;
+    padding: .85rem 1rem;
+    border: 0.5px solid;
+}
+.sc-blue  { background: #E6F1FB; border-color: #B5D4F4; }
+.sc-teal  { background: #E1F5EE; border-color: #9FE1CB; }
+.sc-amber { background: #FAEEDA; border-color: #FAC775; }
+.sc-red   { background: #FCEBEB; border-color: #F7C1C1; }
+
+.scard-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 4px;
+}
+.sc-blue  .scard-label { color: #185FA5; }
+.sc-teal  .scard-label { color: #0F6E56; }
+.sc-amber .scard-label { color: #854F0B; }
+.sc-red   .scard-label { color: #A32D2D; }
+
+.scard-val {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.1;
+}
+.sc-blue  .scard-val { color: #0C447C; }
+.sc-teal  .scard-val { color: #085041; }
+.sc-amber .scard-val { color: #633806; }
+.sc-red   .scard-val { color: #791F1F; }
+
+.scard-sub { font-size: 11px; margin-top: 3px; }
+.sc-blue  .scard-sub { color: #378ADD; }
+.sc-teal  .scard-sub { color: #1D9E75; }
+.sc-amber .scard-sub { color: #BA7517; }
+.sc-red   .scard-sub { color: #E24B4A; }
+
+/* ── toolbar ────────────────────────────────── */
+.kpi-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.kpi-toolbar .form-control {
+    height: 34px;
+    font-size: 13px;
+    max-width: 240px;
+    border: 0.5px solid #d1d5db;
+    border-radius: 8px;
+}
+.chk-label {
+    font-size: 13px;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* ── table card ─────────────────────────────── */
+.kpi-card {
+    background: #fff;
+    border: 0.5px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* ── table ──────────────────────────────────── */
+#tblKpi {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+#tblKpi thead th {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: .7rem .9rem;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 0.5px solid;
+}
+#tblKpi thead th.tc { text-align: center; }
+
+#tblKpi thead th.h-cod  { background: #F1EFE8; color: #5F5E5A; border-bottom-color: #D3D1C7; }
+#tblKpi thead th.h-nome { background: #F1EFE8; color: #5F5E5A; border-bottom-color: #D3D1C7; }
+#tblKpi thead th.h-blue { background: #E6F1FB; color: #185FA5; border-bottom-color: #B5D4F4; }
+#tblKpi thead th.h-pers { background: #EAF3DE; color: #3B6D11; border-bottom-color: #C0DD97; }
+#tblKpi thead th.h-mat  { background: #FAEEDA; color: #854F0B; border-bottom-color: #FAC775; }
+#tblKpi thead th.h-sub  { background: #EEEDFE; color: #534AB7; border-bottom-color: #CECBF6; }
+
+#tblKpi thead .th-icon {
+    font-size: 16px;
+    display: block;
+    margin-bottom: 2px;
+}
+#tblKpi thead th.h-blue .th-icon { color: #378ADD; }
+#tblKpi thead th.h-pers .th-icon { color: #639922; }
+#tblKpi thead th.h-mat  .th-icon { color: #BA7517; }
+#tblKpi thead th.h-sub  .th-icon { color: #7F77DD; }
+
+#tblKpi thead .th-hint {
+    font-size: 10px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 1px;
+    opacity: .7;
+}
+
+#tblKpi tbody tr { transition: background .1s; }
+#tblKpi tbody tr:hover td { background: #fafafa; }
+#tblKpi tbody td {
+    padding: .65rem .9rem;
+    vertical-align: middle;
+    border-bottom: 0.5px solid #f3f4f6;
+    color: #1f2937;
+}
+#tblKpi tbody tr:last-child td { border-bottom: none; }
+
+/* accento laterale */
+.row-ok   td:first-child { border-left: 3px solid #1D9E75; }
+.row-warn td:first-child { border-left: 3px solid #EF9F27; }
+.row-neg  td:first-child { border-left: 3px solid #E24B4A; }
+.row-nd   td:first-child { border-left: 3px solid #D3D1C7; }
+
+/* codice */
+.cod-badge {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    padding: .2em .55em;
+    border-radius: 5px;
+    background: #F1EFE8;
+    color: #5F5E5A;
+    border: 0.5px solid #D3D1C7;
+    white-space: nowrap;
+}
+
+/* nome */
+.nome-cell {
+    font-weight: 500;
+    font-size: 13px;
+    color: #111827;
+}
+
+/* KPI1 badges */
+.kpi1-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: .25em .65em;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 0.5px solid;
+}
+.b-ok   { color: #085041; background: #9FE1CB; border-color: #1D9E75; }
+.b-warn { color: #633806; background: #FAC775; border-color: #BA7517; }
+.b-neg  { color: #791F1F; background: #F7C1C1; border-color: #E24B4A; }
+
+.kpi-ratio {
+    font-size: 10px;
+    color: #9ca3af;
+    margin-top: 3px;
+    text-align: center;
+}
+
+/* percentuali con barra */
+.pct-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+.pct-val    { font-size: 13px; font-weight: 500; }
+.pct-green  { color: #3B6D11; }
+.pct-amber  { color: #854F0B; }
+.pct-purple { color: #534AB7; }
+
+.bar-wrap {
+    width: 52px;
+    height: 5px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.bar-bg-green  { background: #C0DD97; }
+.bar-bg-amber  { background: #FAC775; }
+.bar-bg-purple { background: #CECBF6; }
+
+.bar-fill { height: 5px; border-radius: 4px; }
+.bf-green  { background: #639922; }
+.bf-amber  { background: #BA7517; }
+.bf-purple { background: #7F77DD; }
+
+.tc { text-align: center; }
+.kpi-muted { color: #9ca3af; font-size: 13px; }
+</style>
+
+<!-- ── HEADER ──────────────────────────────────────────────────────── -->
+<div class="kpi-header">
+    <div>
+        <div class="kpi-title">
+            <div class="kpi-title-icon">
+                <i class="bi bi-bar-chart-line-fill"></i>
+            </div>
+            <div>
+                KPI per commessa
+                <div class="kpi-subtitle">Indicatori calcolati sui costi approvati dal tecnico</div>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        {% if k1_globale is not none %}
+            {% if k1_globale >= 1.15 %}
+            <div class="stato-pill stato-pos">
+                <i class="bi bi-check-circle-fill"></i> Stato globale positivo
+                <span style="font-weight:400;font-size:11px;">({{ "%.2f"|format(k1_globale) }})</span>
+            </div>
+            {% elif k1_globale >= 1.0 %}
+            <div class="stato-pill stato-warn">
+                <i class="bi bi-exclamation-triangle-fill"></i> Stato globale scarso
+                <span style="font-weight:400;font-size:11px;">({{ "%.2f"|format(k1_globale) }})</span>
+            </div>
+            {% else %}
+            <div class="stato-pill stato-neg">
+                <i class="bi bi-x-circle-fill"></i> Stato globale negativo
+                <span style="font-weight:400;font-size:11px;">({{ "%.2f"|format(k1_globale) }})</span>
+            </div>
+            {% endif %}
+        {% endif %}
+
+        {% if n_ok > 0 or n_warning > 0 or n_danger > 0 %}
+        <div class="mini-stats">
+            {% if n_ok > 0 %}
+            <div class="mini-stat ms-ok"><i class="bi bi-check-circle-fill"></i> {{ n_ok }} OK</div>
+            {% endif %}
+            {% if n_warning > 0 %}
+            <div class="mini-stat ms-warn"><i class="bi bi-dash-circle-fill"></i> {{ n_warning }} Scarso</div>
+            {% endif %}
+            {% if n_danger > 0 %}
+            <div class="mini-stat ms-bad"><i class="bi bi-x-circle-fill"></i> {{ n_danger }} Perdita</div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if righe %}
+
+<!-- ── SUMMARY CARDS ─────────────────────────────────────────────── -->
+<div class="summary-cards">
+    <div class="scard sc-blue">
+        <div class="scard-label">Totali</div>
+        <div class="scard-val">{{ righe | length }}</div>
+        <div class="scard-sub">commesse</div>
+    </div>
+    {% if n_ok > 0 %}
+    <div class="scard sc-teal">
+        <div class="scard-label">In positivo</div>
+        <div class="scard-val">{{ n_ok }}</div>
+        <div class="scard-sub">ratio ≥ 1.15</div>
+    </div>
+    {% endif %}
+    {% if n_warning > 0 %}
+    <div class="scard sc-amber">
+        <div class="scard-label">Scarse</div>
+        <div class="scard-val">{{ n_warning }}</div>
+        <div class="scard-sub">ratio 1.00 – 1.14</div>
+    </div>
+    {% endif %}
+    {% if n_danger > 0 %}
+    <div class="scard sc-red">
+        <div class="scard-label">In perdita</div>
+        <div class="scard-val">{{ n_danger }}</div>
+        <div class="scard-sub">ratio &lt; 1.00</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── TOOLBAR ────────────────────────────────────────────────────── -->
+<div class="kpi-toolbar">
+    <input type="search" id="filterKpi" class="form-control form-control-sm"
+           placeholder="Filtra per codice o nome…">
+    <label class="chk-label">
+        <input type="checkbox" class="form-check-input" id="chkSoloConDati">
+        Solo commesse con dati
+    </label>
+</div>
+
+<!-- ── TABLE ─────────────────────────────────────────────────────── -->
+<div class="kpi-card">
+    <div class="table-responsive">
+        <table id="tblKpi">
+            <thead>
+                <tr>
+                    <th class="h-cod" style="width:95px;">Codice</th>
+                    <th class="h-nome">Commessa</th>
+                    <th class="h-blue tc" style="min-width:130px;">
+                        <span class="th-icon"><i class="bi bi-graph-up-arrow"></i></span>
+                        KPI 1 — Redditività
+                        <div class="th-hint">Attivo ÷ (Sub + Materiali)</div>
+                    </th>
+                    <th class="h-pers tc" style="min-width:100px;">
+                        <span class="th-icon"><i class="bi bi-people-fill"></i></span>
+                        KPI 2 — Personale
+                        <div class="th-hint">% su passivo</div>
+                    </th>
+                    <th class="h-mat tc" style="min-width:100px;">
+                        <span class="th-icon"><i class="bi bi-box-seam"></i></span>
+                        KPI 3 — Materiali
+                        <div class="th-hint">% su passivo</div>
+                    </th>
+                    <th class="h-sub tc" style="min-width:100px;">
+                        <span class="th-icon"><i class="bi bi-building"></i></span>
+                        KPI 4 — Subappalti
+                        <div class="th-hint">% su passivo</div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in righe %}
+            {% if r.k1_color == 'success' %}{% set row_cls = 'row-ok' %}
+            {% elif r.k1_color == 'warning' %}{% set row_cls = 'row-warn' %}
+            {% elif r.k1_color == 'danger'  %}{% set row_cls = 'row-neg' %}
+            {% else %}{% set row_cls = 'row-nd' %}{% endif %}
+            <tr class="{{ row_cls }}" data-hasdata="{{ '1' if (r.passivo > 0 or r.attivo > 0) else '0' }}">
+
+                <td><span class="cod-badge">{{ r.codice }}</span></td>
+                <td class="nome-cell">{{ r.nome }}</td>
+
+                <!-- KPI 1 -->
+                <td class="tc">
+                    {% if r.k1 is not none %}
+                        {% if r.k1_color == 'success' %}
+                        <div class="kpi1-badge b-ok"><i class="bi bi-check-lg"></i> OK</div>
+                        {% elif r.k1_color == 'warning' %}
+                        <div class="kpi1-badge b-warn"><i class="bi bi-dash-lg"></i> Scarso</div>
+                        {% else %}
+                        <div class="kpi1-badge b-neg"><i class="bi bi-x-lg"></i> Perdita</div>
+                        {% endif %}
+                        <div class="kpi-ratio">ratio {{ "%.2f"|format(r.k1) }}</div>
+                    {% else %}
+                        <span class="kpi-muted">–</span>
+                    {% endif %}
+                </td>
+
+                <!-- KPI 2 -->
+                <td class="tc">
+                    {% if r.k2 is not none %}
+                        <div class="pct-wrap">
+                            <span class="pct-val pct-green">{{ r.k2 }}%</span>
+                            <div class="bar-wrap bar-bg-green">
+                                <div class="bar-fill bf-green" style="width:{% if r.k2 > 100 %}100{% else %}{{ r.k2 }}{% endif %}%;"></div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <span class="kpi-muted">–</span>
+                    {% endif %}
+                </td>
+
+                <!-- KPI 3 -->
+                <td class="tc">
+                    {% if r.k3 is not none %}
+                        <div class="pct-wrap">
+                            <span class="pct-val pct-amber">{{ r.k3 }}%</span>
+                            <div class="bar-wrap bar-bg-amber">
+                                <div class="bar-fill bf-amber" style="width:{% if r.k3 > 100 %}100{% else %}{{ r.k3 }}{% endif %}%;"></div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <span class="kpi-muted">–</span>
+                    {% endif %}
+                </td>
+
+                <!-- KPI 4 -->
+                <td class="tc">
+                    {% if r.k4 is not none %}
+                        <div class="pct-wrap">
+                            <span class="pct-val pct-purple">{{ r.k4 }}%</span>
+                            <div class="bar-wrap bar-bg-purple">
+                                <div class="bar-fill bf-purple" style="width:{% if r.k4 > 100 %}100{% else %}{{ r.k4 }}{% endif %}%;"></div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <span class="kpi-muted">–</span>
+                    {% endif %}
+                </td>
+
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i>
+    Nessuna commessa trovata. Crea almeno una commessa nella sezione Tecnico per vedere i KPI.
+</div>
+{% endif %}
+
+<script>
+(function(){
+    const input = document.getElementById('filterKpi');
+    const chk   = document.getElementById('chkSoloConDati');
+    const rows  = Array.from(document.querySelectorAll('#tblKpi tbody tr'));
+    function applyFilter(){
+        const q = input.value.toLowerCase();
+        const soloConDati = chk.checked;
+        rows.forEach(tr => {
+            const matchQ = !q || tr.textContent.toLowerCase().includes(q);
+            const matchD = !soloConDati || tr.dataset.hasdata === '1';
+            tr.style.display = (matchQ && matchD) ? '' : 'none';
+        });
+    }
+    input.addEventListener('input', applyFilter);
+    chk.addEventListener('change', applyFilter);
+})();
+</script>
+
+{% endblock %}

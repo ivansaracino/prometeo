@@ -1,0 +1,1132 @@
+{% extends 'base.html' %}
+{% block title %}Commessa {{ commessa.codice }} – {{ commessa.nome }}{% endblock %}
+{% block content %}
+
+<!-- Breadcrumb header -->
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('lista_commesse', cliente_id=cliente.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span style="background:#1e40af;color:#fff;border-radius:7px;padding:2px 9px;font-size:.72rem;font-weight:800;">{{ commessa.codice }}</span>
+                <h1 style="font-size:1.2rem;margin:0;">{{ commessa.nome }}</h1>
+            </div>
+            <div class="d-flex gap-3 flex-wrap mt-1" style="font-size:.75rem;color:#64748b;">
+                <span><i class="bi bi-folder2-open me-1"></i>{{ cliente.nome }}</span>
+                {% if commessa.luogo or commessa.via %}
+                <span><i class="bi bi-geo-alt me-1"></i>{% if commessa.luogo %}{{ commessa.luogo }}{% endif %}{% if commessa.via %}{% if commessa.luogo %}, {% endif %}{{ commessa.via }}{% endif %}</span>
+                {% endif %}
+                {% if commessa.owner %}
+                <span><i class="bi bi-person-badge me-1"></i>{{ commessa.owner }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <a href="{{ url_for('ordini_lista', cliente_id=cliente.id) }}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-file-earmark-text me-1"></i>Ordini
+    </a>
+</div>
+
+<!-- ══ PANNELLO RIEPILOGO CON ISTOGRAMMI ══ -->
+{% set pass_tot = riepilogo.passivo_materiali + riepilogo.passivo_subappalti + riepilogo.passivo_personale %}
+{% set saldo = riepilogo.attivo - pass_tot %}
+<div class="table-card mb-3" style="padding:10px 16px 8px;">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <i class="bi bi-bar-chart-fill text-accent" style="font-size:.82rem;"></i>
+        <span class="fw-700" style="font-size:.78rem;color:#475569;text-transform:uppercase;letter-spacing:.4px;">Riepilogo Commessa</span>
+        <span class="ms-auto px-2 py-1 fw-800"
+              style="font-size:.8rem;border-radius:8px;
+                     background:{% if saldo >= 0 %}#d1fae5{% else %}#fee2e2{% endif %};
+                     color:{% if saldo >= 0 %}#065f46{% else %}#991b1b{% endif %};">
+            Saldo {% if saldo >= 0 %}+{% endif %}€ {{ '%.2f'|format(saldo) }}
+        </span>
+    </div>
+
+    <!-- Unico grafico con due pile affiancate -->
+    <div style="height:90px;">
+        <canvas id="chartRiepilogo"></canvas>
+    </div>
+
+    <!-- Mini-stats compatte -->
+    <div class="d-flex flex-wrap gap-1 mt-2">
+        <span style="background:#dbeafe;color:#1e40af;border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:700;">
+            <i class="bi bi-arrow-up-circle me-1"></i>Mat. € {{ '%.0f'|format(riepilogo.passivo_materiali) }}
+        </span>
+        <span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:700;">
+            Sub. € {{ '%.0f'|format(riepilogo.passivo_subappalti) }}
+        </span>
+        <span style="background:#dcfce7;color:#065f46;border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:700;">
+            Pers. € {{ '%.0f'|format(riepilogo.passivo_personale) }}
+        </span>
+        <span style="background:#f0fdf4;color:#15803d;border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:700;">
+            <i class="bi bi-arrow-down-circle me-1"></i>Ord. € {{ '%.0f'|format(riepilogo.attivo_ordini) }}
+        </span>
+        {% if riepilogo.attivo_fatture > 0 %}
+        <span style="background:#bbf7d0;color:#065f46;border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:700;">
+            <i class="bi bi-receipt me-1"></i>Fatt.att. € {{ '%.0f'|format(riepilogo.attivo_fatture) }}
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ══ PANNELLO BOLLE IN ATTESA DI APPROVAZIONE ══ -->
+{% if ddt_in_attesa %}
+<div class="table-card mb-3" style="border-left:4px solid #f59e0b;">
+    <div class="p-3 border-bottom d-flex align-items-center gap-2" style="background:#fffbeb;">
+        <i class="bi bi-truck text-warning fs-5"></i>
+        <span class="fw-700" style="font-size:.9rem;">Bolle in attesa di approvazione</span>
+        <span class="badge bg-warning text-dark ms-1">{{ ddt_in_attesa|length }}</span>
+        <a href="{{ url_for('ddt_da_approvare') }}" class="btn btn-sm btn-outline-warning ms-auto">
+            <i class="bi bi-clipboard-check me-1"></i>Vai alla lista completa
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0" style="font-size:.85rem;">
+            <thead>
+                <tr style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;">
+                    <th>N° Bolla</th><th>Fornitore</th><th>Data</th>
+                    <th class="text-end">Importo</th><th>Tecnico assegnato</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for d in ddt_in_attesa %}
+            <tr>
+                <td class="fw-semibold">{{ d.numero or '—' }}</td>
+                <td>{{ d.fornitore or '—' }}</td>
+                <td class="text-muted small">{{ d.data.strftime('%d/%m/%Y') if d.data else '—' }}</td>
+                <td class="text-end fw-bold text-success">€ {{ '%.2f'|format(d.importo or 0) }}</td>
+                <td>
+                    {% if d.tecnico %}<span class="badge bg-secondary">{{ d.tecnico.nome }}</span>
+                    {% else %}<span class="text-muted small">—</span>{% endif %}
+                </td>
+                <td>
+                    {% if d.file_path %}
+                    <a href="{{ url_for('serve_upload', filepath=d.file_path) }}"
+                       target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                    </a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!-- Pulsanti approva/rifiuta inline per ogni bolla -->
+    {% for d in ddt_in_attesa %}
+    <div class="px-3 py-2 border-top d-flex align-items-center gap-3" style="background:#fffbeb;">
+        <span class="fw-semibold small">Bolla {{ d.numero or d.id }}:</span>
+        <form method="POST" action="{{ url_for('approva_bolla', ddt_id=d.id) }}"
+              onsubmit="return confirm('Approvi questa bolla?')">
+            <button type="submit" class="btn btn-sm btn-success">
+                <i class="bi bi-check-lg me-1"></i>Approva
+            </button>
+        </form>
+        <button class="btn btn-sm btn-outline-danger" type="button"
+                data-bs-toggle="collapse" data-bs-target="#rif-cf-{{ d.id }}">
+            <i class="bi bi-x-lg me-1"></i>Rifiuta
+        </button>
+        <div class="collapse w-100" id="rif-cf-{{ d.id }}">
+            <form method="POST" action="{{ url_for('rifiuta_bolla', ddt_id=d.id) }}" class="d-flex gap-2 align-items-center mt-2">
+                <input name="motivo" class="form-control form-control-sm" placeholder="Motivo rifiuto..." required>
+                <button type="submit" class="btn btn-sm btn-danger text-nowrap">Conferma</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ PANNELLO ORDINI COMMESSA ══ -->
+{% if ordini_commessa %}
+<div class="table-card mb-3">
+    <div class="p-3 border-bottom d-flex align-items-center gap-2" style="background:#f0f9ff;">
+        <i class="bi bi-file-earmark-text text-primary fs-5"></i>
+        <span class="fw-700" style="font-size:.9rem;">Ordini di questa Commessa</span>
+        <span class="badge bg-primary ms-1">{{ ordini_commessa|length }}</span>
+        <a href="{{ url_for('ordine_nuovo', cliente_id=cliente.id, commessa_id=commessa.id) }}"
+           class="btn btn-sm btn-outline-primary ms-auto">
+            <i class="bi bi-plus-lg me-1"></i>Nuovo ordine
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr style="font-size:.78rem;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;">
+                    <th>#</th><th>Identificativo</th><th>Data</th>
+                    <th class="text-end">Totale</th><th class="text-center">Stato</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for o in ordini_commessa %}
+            <tr>
+                <td><code style="font-size:.78rem;">ORD-{{ '%04d'|format(o.id) }}</code></td>
+                <td class="fw-600" style="font-size:.84rem;">{{ o.identificativo or '—' }}</td>
+                <td class="text-muted small">{{ o.creato_il.strftime('%d/%m/%Y') }}</td>
+                <td class="text-end fw-700">€ {{ '%.2f'|format(o.totale) }}</td>
+                <td class="text-center">
+                    {% if o.stato == 'approvato' %}
+                        <span class="status status-ok" style="font-size:.72rem;"><i class="bi bi-check-circle-fill"></i> Approvato</span>
+                    {% elif o.stato == 'in_attesa' %}
+                        <span class="status status-pending" style="font-size:.72rem;"><i class="bi bi-hourglass-split"></i> In attesa</span>
+                    {% else %}
+                        <span class="status" style="font-size:.72rem;background:#f1f5f9;color:#64748b;">{{ o.stato }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('ordine_dettaglio', ordine_id=o.id) }}"
+                       class="btn btn-sm btn-outline-secondary py-0 px-2">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#eef2ff;">
+                    <td colspan="3" class="text-end fw-700 text-muted" style="font-size:.85rem;">Totale ordini commessa</td>
+                    <td class="text-end fw-800" style="color:#4338ca;">€ {{ '%.2f'|format(ordini_commessa|sum(attribute='totale')) }}</td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="mb-3 d-flex justify-content-end">
+    <a href="{{ url_for('ordine_nuovo', cliente_id=cliente.id, commessa_id=commessa.id) }}"
+       class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-plus-lg me-1"></i>Crea primo ordine per questa commessa
+    </a>
+</div>
+{% endif %}
+
+<!-- Tabs principali -->
+<ul class="nav nav-tabs mb-0" style="border-bottom:none;">
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'materiali' %}active{% endif %}"
+           href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='materiali') }}">
+            <i class="bi bi-boxes me-1"></i>Materiali
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'subappalti' %}active{% endif %}"
+           href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='subappalti') }}">
+            <i class="bi bi-people me-1"></i>Subappalti
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'personale' %}active{% endif %}"
+           href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='personale', subtab='ore') }}">
+            <i class="bi bi-person-badge me-1"></i>Personale
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'bolle' %}active{% endif %}"
+           href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='bolle') }}">
+            <i class="bi bi-truck me-1"></i>Bolle DDT
+            {% if righe_ddt_commessa %}
+            <span class="badge bg-info text-white ms-1" style="font-size:.65rem;">{{ righe_ddt_commessa|length }}</span>
+            {% endif %}
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'fatture_attive' %}active{% endif %}"
+           href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='fatture_attive') }}">
+            <i class="bi bi-file-earmark-check me-1"></i>Fatture Attive
+            {% if fatture_attive %}
+            <span class="badge bg-success ms-1" style="font-size:.65rem;">{{ fatture_attive|length }}</span>
+            {% endif %}
+        </a>
+    </li>
+</ul>
+
+{% if tab == 'fatture_attive' %}
+<!-- ══════════ TAB FATTURE ATTIVE ══════════ -->
+<div class="table-card" style="border-radius:0 0 16px 16px;margin-top:0;border-top:none;">
+
+  <!-- Bottone Nuova Fattura Attiva -->
+  <div class="p-3 border-bottom d-flex align-items-center justify-content-between" style="background:#f0fdf4;">
+    <span class="fw-700" style="color:#15803d;font-size:.9rem;">
+      <i class="bi bi-file-earmark-check me-2"></i>Fatture Attive — {{ commessa.codice }}
+    </span>
+    <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalNuovaFatturaAttiva">
+      <i class="bi bi-plus-lg me-1"></i>Nuova Fattura Attiva
+    </button>
+  </div>
+
+  {% if fatture_attive %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:.85rem;">
+      <thead>
+        <tr style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;">
+          <th>Numero</th><th>Cliente</th><th>Emissione</th><th>Scadenza</th>
+          <th class="text-end">Importo</th><th>Stato</th><th class="text-center">File PDF</th><th class="text-center">Scarica</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for f in fatture_attive %}
+      {% set scaduta = f.data_scadenza and f.data_scadenza < oggi and not f.pagata %}
+      <tr class="{% if scaduta %}table-warning{% endif %}">
+        <td><strong>{{ f.numero or '—' }}</strong></td>
+        <td class="text-muted small">{{ f.cliente_fornitore or '—' }}</td>
+        <td class="text-muted small">{{ f.data_emissione.strftime('%d/%m/%Y') if f.data_emissione else '—' }}</td>
+        <td class="small {% if scaduta %}text-danger fw-700{% else %}text-muted{% endif %}">
+          {{ f.data_scadenza.strftime('%d/%m/%Y') if f.data_scadenza else '—' }}
+          {% if scaduta %}<i class="bi bi-exclamation-triangle ms-1"></i>{% endif %}
+        </td>
+        <td class="text-end fw-700 text-success">€ {{ '%.2f'|format(f.importo_netto or f.importo or 0) }}</td>
+        {# tecnico vede importo_netto (senza IVA = secondo massimo); banca vede importo (con IVA = massimo) #}
+        <td>
+          <span class="badge {% if f.pagata %}bg-success{% elif scaduta %}bg-danger{% else %}bg-secondary{% endif %}" style="font-size:.7rem;">
+            {% if f.pagata %}Pagata{% elif scaduta %}Scaduta{% else %}In attesa{% endif %}
+          </span>
+        </td>
+        <td class="text-center">
+          {% if f.file_path %}
+          <a href="{{ url_for('serve_upload', filepath=f.file_path) }}" target="_blank"
+             class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:.72rem;">
+            <i class="bi bi-file-earmark-pdf"></i>
+          </a>
+          {% else %}<span class="text-muted small">—</span>{% endif %}
+        </td>
+        <td class="text-center">
+          <a href="{{ url_for('scarica_pdf_fattura_attiva', commessa_id=commessa.id, fattura_id=f.id) }}"
+             class="btn btn-sm btn-success py-0 px-2" style="font-size:.72rem;" title="Scarica PDF fattura">
+            <i class="bi bi-file-earmark-arrow-down"></i> PDF
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f0fdf4;">
+          <td colspan="5" class="text-end fw-700 text-muted" style="font-size:.82rem;">Totale</td>
+          <td class="text-end fw-800" style="color:#15803d;">
+            {% set _fns = namespace(tot=0) %}{% for _fa in fatture_attive %}{% set _fns.tot = _fns.tot + (_fa.importo_netto or _fa.importo or 0) %}{% endfor %}
+            € {{ '%.2f'|format(_fns.tot) }}
+          </td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="py-5 text-center text-muted">
+    <i class="bi bi-file-earmark-check" style="font-size:3rem;color:#86efac;display:block;margin-bottom:1rem;"></i>
+    <p>Nessuna fattura attiva per questa commessa.</p>
+    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuovaFatturaAttiva">
+      <i class="bi bi-plus-lg me-1"></i>Crea prima fattura attiva
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal Nuova Fattura Attiva -->
+<div class="modal fade" id="modalNuovaFatturaAttiva" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('crea_fattura_attiva_commessa', commessa_id=commessa.id) }}">
+        <div class="modal-header" style="background:#f0fdf4;">
+          <h5 class="modal-title" style="color:#15803d;">
+            <i class="bi bi-file-earmark-check me-2"></i>Nuova Fattura Attiva — {{ commessa.codice }}
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+
+          <!-- ─── SEZIONE INTESTAZIONE ─── -->
+          <div class="p-3 mb-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+            <div class="fw-700 mb-2" style="font-size:.8rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">
+              <i class="bi bi-card-heading me-1"></i>Intestazione Fattura
+            </div>
+            <div class="row g-2">
+              <div class="col-md-3">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">N° Fattura</label>
+                <input type="text" name="numero" class="form-control form-control-sm"
+                       placeholder="auto se vuoto">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">Data Emissione</label>
+                <input type="date" name="data_emissione" class="form-control form-control-sm"
+                       value="{{ oggi.strftime('%Y-%m-%d') }}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">Data Scadenza</label>
+                <input type="date" name="data_scadenza" class="form-control form-control-sm">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">IVA (%)</label>
+                <input type="number" name="aliquota_iva" class="form-control form-control-sm"
+                       step="0.01" min="0" value="22" id="faNormalAliquota" oninput="ricalcolaFa()">
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── SEZIONE DATI CLIENTE ─── -->
+          <div class="p-3 mb-3 rounded-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
+            <div class="fw-700 mb-2" style="font-size:.8rem;color:#1d4ed8;text-transform:uppercase;letter-spacing:.4px;">
+              <i class="bi bi-person-badge me-1"></i>Dati Cliente / Destinatario
+            </div>
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">Ragione Sociale Cliente</label>
+                <input type="text" name="cliente_fornitore" class="form-control form-control-sm"
+                       value="{{ cliente.nome if cliente else '' }}" placeholder="Cliente destinatario">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">P.IVA Cliente</label>
+                <input type="text" name="piva_cliente" class="form-control form-control-sm"
+                       value="{{ cliente.partita_iva if cliente else '' }}" placeholder="IT12345678901">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">PEC Cliente</label>
+                <input type="text" name="pec_cliente" class="form-control form-control-sm"
+                       placeholder="pec@example.it">
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">Indirizzo Cliente</label>
+                <input type="text" name="indirizzo_cliente" class="form-control form-control-sm"
+                       value="{{ cliente.indirizzo if cliente else '' }}" placeholder="Via, N° — CAP Città (PR)">
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── SEZIONE NOSTRA AZIENDA ─── -->
+          <div class="p-3 mb-3 rounded-3" style="background:#fdf4ff;border:1px solid #e9d5ff;">
+            <div class="fw-700 mb-2" style="font-size:.8rem;color:#7c3aed;text-transform:uppercase;letter-spacing:.4px;">
+              <i class="bi bi-building me-1"></i>Nostra Azienda (Mittente)
+            </div>
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">Nostra P.IVA</label>
+                <input type="text" name="mia_piva" class="form-control form-control-sm"
+                       placeholder="P.IVA emittente">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">CUP (se presente)</label>
+                <input type="text" name="cup" class="form-control form-control-sm"
+                       placeholder="Codice CUP">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">CIG (se presente)</label>
+                <input type="text" name="cig" class="form-control form-control-sm"
+                       placeholder="Codice CIG">
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── RIGHE ARTICOLI ─── -->
+          <div class="p-3 mb-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div class="fw-700" style="font-size:.8rem;color:#15803d;text-transform:uppercase;letter-spacing:.4px;">
+                <i class="bi bi-list-ul me-1"></i>Righe Articoli
+              </div>
+              <button type="button" class="btn btn-success btn-sm py-0 px-2" onclick="aggRigaFa()" style="font-size:.78rem;">
+                <i class="bi bi-plus me-1"></i>Aggiungi riga
+              </button>
+            </div>
+            <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;" class="row g-1 mb-1 px-1">
+              <div class="col-2">Articolo</div>
+              <div class="col-4">Descrizione *</div>
+              <div class="col-1 text-end">Qta</div>
+              <div class="col-1">U.M.</div>
+              <div class="col-2 text-end">P.U. (€)</div>
+              <div class="col-1 text-end">Importo</div>
+              <div class="col-1"></div>
+            </div>
+            <div id="faRighe">
+              <!-- prima riga pre-compilata -->
+              <div class="row g-1 align-items-center mb-1 fa-riga">
+                <div class="col-2"><input type="text" name="riga_articolo[]" class="form-control form-control-sm" placeholder="Art."></div>
+                <div class="col-4"><input type="text" name="riga_desc[]" class="form-control form-control-sm" placeholder="Descrizione lavoro/fornitura"></div>
+                <div class="col-1"><input type="number" name="riga_qta[]" class="form-control form-control-sm text-end fa-qta" step="0.01" oninput="aggImportoRiga(this)"></div>
+                <div class="col-1"><input type="text" name="riga_um[]" class="form-control form-control-sm" placeholder="nr"></div>
+                <div class="col-2"><input type="number" name="riga_pu[]" class="form-control form-control-sm text-end fa-pu" step="0.01" oninput="aggImportoRiga(this)"></div>
+                <div class="col-1 fa-imp text-end fw-700" style="font-size:.82rem;">—</div>
+                <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="this.closest('.fa-riga').remove(); ricalcolaFa();"><i class="bi bi-trash3"></i></button></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── RIEPILOGO IMPORTI ─── -->
+          <div class="p-3 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa;">
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">Imponibile (€)</label>
+                <input type="number" name="importo_netto" id="faImportoNetto" class="form-control form-control-sm fw-700"
+                       step="0.01" min="0" placeholder="calcolato auto" oninput="ricalcolaFa()">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">IVA (€)</label>
+                <div class="form-control form-control-sm bg-light text-muted" id="faImportoIva">0,00</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;color:#15803d;">Totale con IVA (€)</label>
+                <div class="form-control form-control-sm fw-700 text-success" id="faTotaleIva" style="background:#f0fdf4;">0,00</div>
+              </div>
+            </div>
+            <div class="mt-2">
+              <label class="form-label mb-1" style="font-size:.78rem;font-weight:600;">Note aggiuntive</label>
+              <textarea name="note" class="form-control form-control-sm" rows="2" placeholder="Note facoltative…"></textarea>
+            </div>
+          </div>
+
+        </div><!-- /.modal-body -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annulla</button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-lg me-1"></i>Crea Fattura Attiva
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function aggImportoRiga(el){
+    const riga = el.closest('.fa-riga');
+    const qta = parseFloat(riga.querySelector('.fa-qta').value)||0;
+    const pu  = parseFloat(riga.querySelector('.fa-pu').value)||0;
+    const imp = riga.querySelector('.fa-imp');
+    if(qta && pu){ imp.textContent = (qta*pu).toLocaleString('it-IT',{minimumFractionDigits:2}); }
+    else { imp.textContent = '—'; }
+    ricalcolaFa();
+}
+function ricalcolaFa(){
+    let tot = 0;
+    document.querySelectorAll('.fa-riga').forEach(r => {
+        const q = parseFloat(r.querySelector('.fa-qta')?.value)||0;
+        const p = parseFloat(r.querySelector('.fa-pu')?.value)||0;
+        if(q && p) tot += q * p;
+    });
+    const manuale = parseFloat(document.getElementById('faImportoNetto').value)||0;
+    const base = tot > 0 ? tot : manuale;
+    const aliq = parseFloat(document.getElementById('faNormalAliquota').value)||22;
+    const iva  = base * aliq / 100;
+    const totc = base + iva;
+    if(tot > 0) document.getElementById('faImportoNetto').value = tot.toFixed(2);
+    document.getElementById('faImportoIva').textContent  = iva.toLocaleString('it-IT',{minimumFractionDigits:2});
+    document.getElementById('faTotaleIva').textContent   = totc.toLocaleString('it-IT',{minimumFractionDigits:2});
+}
+function aggRigaFa(){
+    const cont = document.getElementById('faRighe');
+    const d = document.createElement('div');
+    d.className = 'row g-1 align-items-center mb-1 fa-riga';
+    d.innerHTML = `
+      <div class="col-2"><input type="text" name="riga_articolo[]" class="form-control form-control-sm" placeholder="Art."></div>
+      <div class="col-4"><input type="text" name="riga_desc[]" class="form-control form-control-sm" placeholder="Descrizione"></div>
+      <div class="col-1"><input type="number" name="riga_qta[]" class="form-control form-control-sm text-end fa-qta" step="0.01" oninput="aggImportoRiga(this)"></div>
+      <div class="col-1"><input type="text" name="riga_um[]" class="form-control form-control-sm" placeholder="nr"></div>
+      <div class="col-2"><input type="number" name="riga_pu[]" class="form-control form-control-sm text-end fa-pu" step="0.01" oninput="aggImportoRiga(this)"></div>
+      <div class="col-1 fa-imp text-end fw-700" style="font-size:.82rem;">—</div>
+      <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="this.closest('.fa-riga').remove(); ricalcolaFa();"><i class="bi bi-trash3"></i></button></div>
+    `;
+    cont.appendChild(d);
+}
+</script>
+
+{% elif tab == 'bolle' %}
+<!-- ══════════ TAB BOLLE DDT ══════════ -->
+<div class="table-card" style="border-radius:0 0 16px 16px;margin-top:0;border-top:none;">
+
+  {% if righe_ddt_commessa %}
+  <!-- Riepilogo per bolla -->
+  {% for ddt_id, righe_gruppo in righe_per_ddt.items() %}
+  {% set ddt_obj = righe_gruppo[0].ddt %}
+  <div class="p-3 border-bottom" style="background:#f0f9ff;">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+          <i class="bi bi-truck text-primary"></i>
+          <span class="fw-700" style="font-size:.9rem;">
+              Bolla {{ ddt_obj.numero or ('DDT-' ~ ddt_id) }}
+          </span>
+          {% if ddt_obj.data %}
+          <span class="text-muted small">{{ ddt_obj.data.strftime('%d/%m/%Y') }}</span>
+          {% endif %}
+          {% if ddt_obj.fornitore %}
+          <span class="badge bg-secondary ms-1" style="font-size:.72rem;">{{ ddt_obj.fornitore }}</span>
+          {% endif %}
+          {% if ddt_obj.file_path %}
+          <a href="{{ url_for('serve_upload', filepath=ddt_obj.file_path) }}"
+             target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 ms-auto" style="font-size:.72rem;">
+              <i class="bi bi-file-earmark-pdf me-1"></i>Vedi PDF
+          </a>
+          {% endif %}
+          <span class="ms-auto fw-700 text-primary">
+              Totale bolla su questa commessa:
+              {% set _ns = namespace(tot=0) %}{% for _r in righe_gruppo %}{% set _ns.tot = _ns.tot + (_r.calc_importo() or 0) %}{% endfor %}
+              € {{ '%.2f'|format(_ns.tot) }}
+          </span>
+      </div>
+  </div>
+  <div class="table-responsive mb-2">
+      <table class="table table-hover mb-0" style="font-size:.84rem;">
+          <thead>
+              <tr style="font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;">
+                  <th>Descrizione</th>
+                  <th class="text-end">Quantità</th>
+                  <th>U.M.</th>
+                  <th class="text-end">P.U. (€)</th>
+                  <th class="text-end">Importo (€)</th>
+              </tr>
+          </thead>
+          <tbody>
+          {% for riga in righe_gruppo %}
+          <tr>
+              <td>{{ riga.descrizione }}</td>
+              <td class="text-end">{{ '%.3f'|format(riga.quantita) if riga.quantita is not none else '—' }}</td>
+              <td class="text-muted small">{{ riga.unita_misura or '—' }}</td>
+              <td class="text-end">{{ '%.2f'|format(riga.prezzo_unitario) if riga.prezzo_unitario is not none else '—' }}</td>
+              <td class="text-end fw-700 text-success">
+                  {{ '%.2f'|format(riga.calc_importo()) if riga.calc_importo() else '—' }}
+              </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+          <tfoot>
+              <tr style="background:#e0f2fe;">
+                  <td colspan="4" class="text-end fw-700 text-muted" style="font-size:.82rem;">Subtotale bolla su commessa</td>
+                  <td class="text-end fw-800" style="color:#0369a1;">
+                      {% set _ns = namespace(tot=0) %}{% for _r in righe_gruppo %}{% set _ns.tot = _ns.tot + (_r.calc_importo() or 0) %}{% endfor %}
+              € {{ '%.2f'|format(_ns.tot) }}
+                  </td>
+              </tr>
+          </tfoot>
+      </table>
+  </div>
+  {% endfor %}
+
+  <!-- Totale complessivo righe DDT per commessa -->
+  <div class="p-3 d-flex justify-content-between align-items-center"
+       style="background:linear-gradient(135deg,#0ea5e9,#0369a1);border-radius:0 0 12px 12px;">
+      <span class="text-white fw-700">Totale materiali da bolle per questa commessa</span>
+      <span class="text-white fw-800 fs-5">€ {{ '%.2f'|format(totale_righe_ddt) }}</span>
+  </div>
+
+  {% else %}
+  <div class="py-5 text-center text-muted">
+      <i class="bi bi-truck" style="font-size:3rem;color:#94a3b8;display:block;margin-bottom:1rem;"></i>
+      <p>Nessuna riga DDT associata a questa commessa.</p>
+      <div class="small">
+          Le righe vengono create quando l'amministrativo revisiona un DDT e assegna le righe a questa commessa.
+      </div>
+  </div>
+  {% endif %}
+
+</div>
+
+{% elif tab == 'personale' %}
+<!-- ══════════ TAB PERSONALE ══════════ -->
+<div class="mb-3 p-0" style="border:2px dashed #c7d2fe;border-radius:16px;background:linear-gradient(135deg,#eef2ff 0%,#faf5ff 100%);overflow:hidden;">
+    <div class="d-flex align-items-center gap-0 flex-wrap">
+        <div class="p-3 d-flex align-items-center gap-3 flex-grow-1">
+            <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#7e22ce);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-qr-code" style="font-size:1.4rem;color:#fff;"></i>
+            </div>
+            <div>
+                <div class="fw-800" style="color:#1e1b4b;font-size:.95rem;">Modulo per gli Operai</div>
+                <div style="font-size:.78rem;color:#64748b;font-weight:600;">Condividi il link — compilano da telefono</div>
+                <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
+                    <code style="background:#e0e7ff;color:#4338ca;padding:3px 10px;border-radius:8px;font-size:.8rem;font-weight:700;">
+                        {{ request.host_url }}operaio
+                    </code>
+                    <button onclick="copiaLink()" class="btn btn-sm" style="background:#e0e7ff;color:#4338ca;font-weight:700;border:none;padding:3px 12px;border-radius:8px;font-size:.78rem;">
+                        <i class="bi bi-clipboard me-1"></i><span id="btnCopiaLbl">Copia</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="p-3 d-none d-md-flex flex-column align-items-center gap-1" style="border-left:1px dashed #c7d2fe;min-width:120px;">
+            <div id="qrcode"></div>
+            <div style="font-size:.7rem;color:#94a3b8;font-weight:700;text-align:center;margin-top:4px;">Scansiona</div>
+        </div>
+    </div>
+</div>
+
+<!-- Mini stat sub-categoria -->
+<div class="row g-2 mb-0 mx-0" style="background:#f8faff;padding:16px 12px 0;border:1px solid #e0e7ff;border-top:none;border-bottom:none;">
+    <div class="col-6">
+        <a href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='personale', subtab='ore') }}"
+           class="sub-stat-card {% if subtab == 'ore' %}active-ore{% endif %}">
+            <div class="sub-icon icon-blue mx-auto"><i class="bi bi-clock-fill" style="color:#4338ca;"></i></div>
+            <div class="sub-val">€ {{ '%.0f'|format(sub_totali.ore) }}</div>
+            <div class="sub-lbl">Ore Lavoro</div>
+        </a>
+    </div>
+    <div class="col-6">
+        <a href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='personale', subtab='km') }}"
+           class="sub-stat-card {% if subtab == 'km' %}active-km{% endif %}">
+            <div class="sub-icon icon-purple mx-auto"><i class="bi bi-geo-alt-fill" style="color:#7e22ce;"></i></div>
+            <div class="sub-val">€ {{ '%.0f'|format(sub_totali.km) }}</div>
+            <div class="sub-lbl">Chilometri</div>
+        </a>
+    </div>
+</div>
+
+<div class="table-card" style="border-radius:0 0 var(--radius-lg) var(--radius-lg);">
+    <div class="px-4 pt-3 pb-2 border-bottom sub-nav-pill d-flex align-items-center gap-2" style="background:#fafbff;">
+        <a href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='personale', subtab='ore') }}"
+           class="btn btn-sm {% if subtab == 'ore' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-clock me-1"></i>ORE
+        </a>
+        <a href="{{ url_for('commessa_detail', commessa_id=commessa.id, tab='personale', subtab='km') }}"
+           class="btn btn-sm {% if subtab == 'km' %}text-white{% else %}btn-outline-secondary{% endif %}"
+           {% if subtab == 'km' %}style="background:linear-gradient(135deg,#7e22ce,#6d28d9);border:none;"{% endif %}>
+            <i class="bi bi-geo-alt me-1"></i>KM
+        </a>
+    </div>
+
+    <!-- ─── FORM ORE ─── -->
+    {% if subtab == 'ore' %}
+    <div class="p-4 border-bottom" style="background:#f5f3ff;">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="sub-icon icon-blue" style="width:32px;height:32px;border-radius:10px;font-size:.9rem;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-clock-fill" style="color:#4338ca;"></i>
+            </span>
+            <span class="fw-700" style="color:#4338ca;">Aggiungi Ore Lavorate</span>
+        </div>
+        <form method="POST" action="{{ url_for('aggiungi_costo', commessa_id=commessa.id) }}" class="row g-2 align-items-end">
+            <input type="hidden" name="categoria" value="personale">
+            <input type="hidden" name="sottocategoria" value="ore">
+            <input type="hidden" name="importo" id="importoOreHidden" value="0">
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">Dipendente</label>
+                <input type="text" name="descrizione" class="form-control" placeholder="Nome e Cognome" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">N. Ore</label>
+                <input type="number" name="quantita" id="oreQta" class="form-control" step="0.5" min="0" placeholder="8" oninput="aggOreImporto()" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">€ / Ora</label>
+                <input type="number" name="valore_unitario" id="oreTariff" class="form-control" step="0.01" min="0" placeholder="25.00" oninput="aggOreImporto()" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">Totale calcolato</label>
+                <input type="text" id="oreTotaleShow" class="form-control computed-total computed-total-ore" readonly placeholder="—">
+            </div>
+            <div class="col-6 col-md-1">
+                <label class="form-label mb-1">Data</label>
+                <input type="date" name="data" class="form-control" value="{{ oggi }}">
+            </div>
+            <div class="col-12 col-md-1">
+                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i></button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ─── FORM KM ─── -->
+    {% elif subtab == 'km' %}
+    <div class="p-4 border-bottom" style="background:#faf5ff;">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="sub-icon icon-purple" style="width:32px;height:32px;border-radius:10px;font-size:.9rem;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-geo-alt-fill" style="color:#7e22ce;"></i>
+            </span>
+            <span class="fw-700" style="color:#7e22ce;">Aggiungi Rimborso Chilometri</span>
+        </div>
+        <form method="POST" action="{{ url_for('aggiungi_costo', commessa_id=commessa.id) }}" class="row g-2 align-items-end">
+            <input type="hidden" name="categoria" value="personale">
+            <input type="hidden" name="sottocategoria" value="km">
+            <input type="hidden" name="importo" id="importoKmHidden" value="0">
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">Dipendente / Mezzo</label>
+                <input type="text" name="descrizione" class="form-control" placeholder="Es. Mario Rossi – Auto" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">N. KM</label>
+                <input type="number" name="quantita" id="kmQta" class="form-control" step="1" min="0" placeholder="50" oninput="aggKmImporto()" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">€ / KM</label>
+                <input type="number" name="valore_unitario" id="kmTariff" class="form-control" step="0.001" min="0" value="0.30" oninput="aggKmImporto()" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">Totale calcolato</label>
+                <input type="text" id="kmTotaleShow" class="form-control computed-total computed-total-km" readonly placeholder="—">
+            </div>
+            <div class="col-6 col-md-1">
+                <label class="form-label mb-1">Data</label>
+                <input type="date" name="data" class="form-control" value="{{ oggi }}">
+            </div>
+            <div class="col-12 col-md-1">
+                <button type="submit" class="btn w-100 fw-700 text-white" style="background:linear-gradient(135deg,#7e22ce,#6d28d9);">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Tabella voci sub-categoria -->
+    {% set voci_sub = costi['personale'] | selectattr('sottocategoria', 'equalto', subtab) | list %}
+    {% if voci_sub %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                {% if subtab == 'ore' %}
+                <tr><th>Data</th><th>Dipendente</th><th class="text-center">N. Ore</th><th class="text-center">€/Ora</th><th class="text-end">Totale</th><th></th></tr>
+                {% elif subtab == 'km' %}
+                <tr><th>Data</th><th>Dipendente / Mezzo</th><th class="text-center">N. KM</th><th class="text-center">€/KM</th><th class="text-end">Totale</th><th></th></tr>
+                {% endif %}
+            </thead>
+            <tbody>
+                {% for voce in voci_sub %}
+                <tr>
+                    <td class="text-muted small">{{ voce.data.strftime('%d/%m/%Y') if voce.data else '—' }}</td>
+                    <td class="fw-600">{{ voce.descrizione }}</td>
+                    <td class="text-center">
+                        {%- set _qta_str = ('%.1f'|format(voce.quantita) if voce.quantita else '—') + ('h' if subtab=='ore' else ' km') %}
+                        {%- set _pop_body -%}
+<i class='bi bi-person me-1'></i><strong>{{ voce.descrizione | replace('"', '&quot;') }}</strong><br>
+<i class='bi bi-calendar3 me-1'></i>{{ voce.data.strftime('%d/%m/%Y') if voce.data else '—' }}<br>
+{% if subtab=='ore' %}<i class='bi bi-clock me-1'></i>Ore: <strong>{{ '%.1f'|format(voce.quantita or 0) }} h</strong><br>{% else %}<i class='bi bi-speedometer2 me-1'></i>Km: <strong>{{ (voce.quantita or 0)|int }}</strong><br>{% endif %}
+{% if voce.valore_unitario %}<i class='bi bi-currency-euro me-1'></i>Tariffa: {{ '%.3f'|format(voce.valore_unitario) }} €/{% if subtab=='ore' %}h{% else %}km{% endif %}<br>{% endif %}
+<i class='bi bi-wallet2 me-1'></i>Totale: <strong>€ {{ '%.2f'|format(voce.importo or 0) }}</strong>
+                        {%- endset -%}
+                        <button type="button"
+                                class="badge border-0 ore-pop"
+                                style="background:#e0e7ff;color:#3730a3;font-size:.85rem;padding:5px 12px;border-radius:8px;cursor:pointer;"
+                                data-bs-toggle="popover"
+                                data-bs-placement="right"
+                                data-bs-trigger="click"
+                                data-bs-html="true"
+                                data-bs-title="{% if subtab=='ore' %}Dettaglio Ore{% else %}Dettaglio KM{% endif %}"
+                                data-bs-content="{{ _pop_body | replace('\n', '') | replace('"', '&quot;') }}">
+                            {% if subtab=='ore' %}<i class="bi bi-clock me-1"></i>{% else %}<i class="bi bi-speedometer2 me-1"></i>{% endif %}
+                            {{ _qta_str }}
+                        </button>
+                    </td>
+                    <td class="text-center text-muted small">
+                        {% if voce.valore_unitario %}
+                        <span class="text-muted" style="font-size:.8rem;">€ {{ '%.3f'|format(voce.valore_unitario) }}/{% if subtab=='ore' %}h{% else %}km{% endif %}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-end fw-700" style="color:{% if subtab=='ore' %}#4338ca{% else %}#7e22ce{% endif %};">
+                        € {{ '%.2f'|format(voce.importo) }}
+                    </td>
+                    <td class="text-end">
+                        <form method="POST" action="{{ url_for('elimina_costo', costo_id=voce.id) }}"
+                              onsubmit="return confirm('Eliminare questa voce?')" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#f5f3ff;">
+                    {% if subtab == 'ore' %}<td colspan="4" class="fw-700 text-end" style="color:#4338ca;">Totale Ore</td>
+                    {% elif subtab == 'km' %}<td colspan="4" class="fw-700 text-end" style="color:#7e22ce;">Totale KM</td>
+                    {% endif %}
+                    <td class="text-end fw-800" style="font-size:1.1rem;color:{% if subtab=='ore' %}#4338ca{% else %}#7e22ce{% endif %};">
+                        € {{ '%.2f'|format(sub_totali[subtab]) }}
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state py-5">
+        <i class="bi bi-inbox"></i>
+        <h4>Nessuna voce</h4>
+        <p class="text-muted mb-0">Aggiungi una voce dal form sopra.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% else %}
+<!-- ══════════ MATERIALI / SUBAPPALTI ══════════ -->
+
+{% if tab == 'subappalti' %}
+  {% set fat_tab = fatture_passive | selectattr('sottotipo', 'equalto', 'subappalto') | list %}
+{% else %}
+  {% set fat_tab = fatture_passive | selectattr('sottotipo', 'equalto', 'materiali') | list %}
+{% endif %}
+
+{% if fat_tab %}
+<div class="table-card mb-0" style="border-radius:0 var(--radius-lg) 0 0;border-bottom:2px solid #e2e8f0;">
+    <div class="px-4 pt-3 pb-2 d-flex align-items-center gap-2" style="background:#f8faff;border-bottom:1px solid #e2e8f0;">
+        <i class="bi bi-receipt text-accent"></i>
+        <span class="fw-700 text-accent" style="font-size:.85rem;">Fatture da Amministrazione</span>
+        <span class="badge bg-primary ms-1" style="font-size:.65rem;">{{ fat_tab|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr style="font-size:.8rem;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;">
+                    <th>Numero</th><th>Fornitore</th><th>Tipo</th><th>Scadenza</th>
+                    <th class="text-end">Importo</th><th>Stato</th><th class="text-center">File</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for f in fat_tab %}
+            {% set scaduta = f.data_scadenza and f.data_scadenza < oggi and not f.pagata %}
+            <tr style="{% if scaduta %}background:#fff7f7;{% endif %}">
+                <td class="fw-700">{{ f.numero or '—' }}</td>
+                <td class="fw-600">{{ f.cliente_fornitore or '—' }}</td>
+                <td>
+                    {% if f.sottotipo == 'subappalto' %}
+                    <span style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#854d0e;border:1px solid #fde68a;border-radius:20px;padding:2px 9px;font-size:.75rem;font-weight:700;">
+                        <i class="bi bi-people-fill"></i>Subappalto
+                    </span>
+                    {% else %}
+                    <span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;border-radius:20px;padding:2px 9px;font-size:.75rem;font-weight:700;">
+                        <i class="bi bi-boxes"></i>Materiali
+                    </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if f.data_scadenza %}
+                    <span {% if scaduta %}style="color:#dc2626;font-weight:700;"{% endif %}>
+                        {{ f.data_scadenza.strftime('%d/%m/%Y') }}
+                        {% if scaduta %}<i class="bi bi-exclamation-triangle-fill ms-1"></i>{% endif %}
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="text-end fw-700">€ {{ '%.2f'|format(f.importo) }}</td>
+                <td>
+                    {% if f.pagata %}
+                    <span style="background:#dcfce7;color:#166534;border-radius:20px;padding:2px 10px;font-size:.75rem;font-weight:700;">Pagata</span>
+                    {% else %}
+                    <span style="background:#fef9c3;color:#854d0e;border-radius:20px;padding:2px 10px;font-size:.75rem;font-weight:700;">Non pagata</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    {% if f.file_path %}
+                    <a href="{{ url_for('serve_upload', filepath=f.file_path) }}" target="_blank"
+                       class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-text"></i></a>
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                <td class="text-end">
+                    <form method="POST" action="{{ url_for('toggle_pagamento_tecnico', fattura_id=f.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm {% if f.pagata %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                            <i class="bi {% if f.pagata %}bi-arrow-counterclockwise{% else %}bi-check2{% endif %}"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#f1f5f9;">
+                    <td colspan="4" class="fw-700 text-end" style="color:#475569;font-size:.85rem;">Totale fatture</td>
+                    <td class="text-end fw-800">€ {{ '%.2f'|format(fat_tab | sum(attribute='importo')) }}</td>
+                    <td colspan="3"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="table-card" style="border-radius:{% if fat_tab %}0 0 var(--radius-lg) var(--radius-lg){% else %}0 var(--radius-lg) var(--radius-lg) var(--radius-lg){% endif %};">
+    <div class="p-4 border-bottom" style="background:#f8faff;">
+        <form method="POST" action="{{ url_for('aggiungi_costo', commessa_id=commessa.id) }}" class="row g-2 align-items-end">
+            <input type="hidden" name="categoria" value="{{ tab }}">
+            <div class="col-12 col-md-5">
+                <label class="form-label mb-1">Descrizione</label>
+                <input type="text" name="descrizione" class="form-control"
+                       placeholder="{% if tab == 'materiali' %}Es. Acquisto calcestruzzo{% else %}Es. Impresa Rossi srl{% endif %}" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">Importo (€)</label>
+                <input type="number" name="importo" class="form-control" step="0.01" min="0" placeholder="0.00" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">Data</label>
+                <input type="date" name="data" class="form-control" value="{{ oggi }}">
+            </div>
+            <div class="col-12 col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-plus-lg me-1"></i>Aggiungi voce
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% set voci = costi[tab] %}
+    {% if voci %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr><th>Data</th><th>Descrizione</th><th class="text-end">Importo</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for voce in voci %}
+                <tr>
+                    <td class="text-muted small">{{ voce.data.strftime('%d/%m/%Y') if voce.data else '—' }}</td>
+                    <td class="fw-600">{{ voce.descrizione }}</td>
+                    <td class="text-end fw-700 text-accent">€ {{ '%.2f'|format(voce.importo) }}</td>
+                    <td class="text-end">
+                        <form method="POST" action="{{ url_for('elimina_costo', costo_id=voce.id) }}"
+                              onsubmit="return confirm('Eliminare questa voce?')" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#eef2ff;">
+                    <td colspan="2" class="fw-700 text-end" style="color:#4338ca;">Totale {{ tab|capitalize }}</td>
+                    <td class="text-end fw-800 text-accent" style="font-size:1.1rem;">€ {{ '%.2f'|format(totali[tab]) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state py-5">
+        <i class="bi bi-inbox"></i>
+        <h4>Nessuna voce manuale</h4>
+        <p class="text-muted mb-0">Nessuna voce aggiunta. Usare il form sopra.</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Chart.js + QR -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+/* ── Grafico unico: Passivo (impilato) + Attivo (impilato) affiancati ── */
+const rCtx = document.getElementById('chartRiepilogo');
+if(rCtx){
+    /* Palette verde per gli ordini */
+    const attPalette = ['#16a34a','#22c55e','#4ade80','#86efac','#bbf7d0',
+                        '#065f46','#15803d','#a7f3d0','#34d399','#6ee7b7'];
+
+    /* Dataset passivo — ogni componente usa stack:'passivo', data=[valore, 0] */
+    const dsPassivo = [
+        { label:'Materiali',  data:[{{ riepilogo.passivo_materiali }},  0], backgroundColor:'#3b82f6', stack:'passivo', borderSkipped:false, borderRadius:0, barPercentage:0.35, categoryPercentage:0.7 },
+        { label:'Subappalti', data:[{{ riepilogo.passivo_subappalti }}, 0], backgroundColor:'#f59e0b', stack:'passivo', borderSkipped:false, borderRadius:0, barPercentage:0.35, categoryPercentage:0.7 },
+        { label:'Personale',  data:[{{ riepilogo.passivo_personale }},  0], backgroundColor:'#10b981', stack:'passivo', borderSkipped:false, borderRadius:3, barPercentage:0.35, categoryPercentage:0.7 },
+    ];
+
+    /* Dataset attivo — ordini per cliente + fatture attive per commessa */
+    const dsAttivo = [
+        {% set att_colors = ['#16a34a','#22c55e','#4ade80','#15803d','#065f46','#34d399'] %}
+        {% set has_ordini = cliente.ordini | length > 0 %}
+        {% set has_fatt_att = riepilogo.attivo_fatture > 0 %}
+        {% for o in cliente.ordini %}
+        {
+            label: '{{ (o.rif_ordine or ("Ord.#"~o.id)) | replace("'","") }}',
+            data: [0, {{ o.totale or 0 }}],
+            backgroundColor: '{{ att_colors[loop.index0 % 6] }}',
+            stack: 'attivo',
+            borderSkipped: false,
+            borderRadius: {% if loop.last and not has_fatt_att %}3{% else %}0{% endif %},
+            barPercentage: 0.35,
+            categoryPercentage: 0.7,
+        },
+        {% endfor %}
+        {% if riepilogo.attivo_fatture > 0 %}
+        {
+            label: 'Fatture attive',
+            data: [0, {{ riepilogo.attivo_fatture }}],
+            backgroundColor: '#86efac',
+            stack: 'attivo',
+            borderSkipped: false,
+            borderRadius: 3,
+            barPercentage: 0.35,
+            categoryPercentage: 0.7,
+        },
+        {% endif %}
+        {% if not has_ordini and riepilogo.attivo_fatture == 0 %}
+        { label:'Nessun attivo', data:[0,0], backgroundColor:'#d1fae5', stack:'attivo', borderSkipped:false, borderRadius:3, barPercentage:0.35, categoryPercentage:0.7 },
+        {% endif %}
+    ];
+
+    new Chart(rCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Passivo','Attivo'],
+            datasets: [...dsPassivo, ...dsAttivo]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'right',
+                    labels: { boxWidth: 8, padding: 6, font: { size: 9 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            if(ctx.parsed.y === 0) return null;
+                            return ctx.dataset.label + ': € ' +
+                                   ctx.parsed.y.toLocaleString('it-IT',{minimumFractionDigits:2});
+                        }
+                    },
+                    filter: item => item.parsed.y !== 0
+                }
+            },
+            scales: {
+                x: { stacked: true, grid: { display:false }, ticks: { font:{ size:9 } } },
+                y: { stacked: true, beginAtZero:true,
+                     ticks: { callback: v => '€'+v.toLocaleString('it-IT'), font:{ size:9 }, maxTicksLimit:4 },
+                     grid: { color:'#f1f5f9' } }
+            }
+        }
+    });
+}
+
+/* ── QR code operai ── */
+document.addEventListener('DOMContentLoaded', function(){
+    const qrEl = document.getElementById('qrcode');
+    if(qrEl) new QRCode(qrEl,{text:window.location.origin+'/operaio',width:90,height:90,colorDark:'#1e1b4b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+});
+
+/* ── Copia link ── */
+function copiaLink(){
+    const url = window.location.origin+'/operaio';
+    navigator.clipboard.writeText(url).then(()=>{
+        const lbl = document.getElementById('btnCopiaLbl');
+        if(lbl){lbl.textContent='Copiato!'; setTimeout(()=>lbl.textContent='Copia',2000);}
+    }).catch(()=>prompt('Copia questo link:',url));
+}
+
+/* Calcolo ORE */
+function aggOreImporto(){
+    const q=parseFloat(document.getElementById('oreQta')?.value)||0;
+    const v=parseFloat(document.getElementById('oreTariff')?.value)||0;
+    const tot=q*v;
+    const el=document.getElementById('oreTotaleShow');
+    const hid=document.getElementById('importoOreHidden');
+    if(el) el.value=tot>0?'€ '+tot.toFixed(2):'';
+    if(hid) hid.value=tot.toFixed(2);
+}
+
+/* Calcolo KM */
+function aggKmImporto(){
+    const q=parseFloat(document.getElementById('kmQta')?.value)||0;
+    const v=parseFloat(document.getElementById('kmTariff')?.value)||0.30;
+    const tot=q*v;
+    const el=document.getElementById('kmTotaleShow');
+    const hid=document.getElementById('importoKmHidden');
+    if(el) el.value=tot>0?'€ '+tot.toFixed(2):'';
+    if(hid) hid.value=tot.toFixed(2);
+}
+document.addEventListener('DOMContentLoaded', aggKmImporto);
+
+/* ─── Popover ore/km ─────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function () {
+    var pops = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    pops.forEach(function(el) { new bootstrap.Popover(el, { sanitize: false }); });
+    document.addEventListener('click', function(e) {
+        pops.forEach(function(el) {
+            var p = bootstrap.Popover.getInstance(el);
+            if (p && !el.contains(e.target) && !document.querySelector('.popover')?.contains(e.target)) {
+                p.hide();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

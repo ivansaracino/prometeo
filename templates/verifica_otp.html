@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Verifica OTP – Gestionale Aziendale{% endblock %}
+{% block content %}
+<div class="auth-card">
+    <div class="auth-logo"><i class="bi bi-shield-lock-fill"></i></div>
+    <h2 class="text-center">Verifica OTP</h2>
+    <p class="subtitle text-center">
+        Codice inviato al numero <strong>{{ tel_mascherato }}</strong>
+    </p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endwith %}
+
+    <div class="otp-demo-box">
+        <div class="label mb-1">&#128273; Codice OTP (demo)</div>
+        <div class="otp-code">{{ otp_demo }}</div>
+        <div style="color:#64748b; font-size:.75rem; margin-top:6px">
+            In produzione verrà inviato via SMS al tuo telefono
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="mb-4">
+            <label class="form-label text-center d-block">Inserisci il codice a 6 cifre</label>
+            <input type="text"
+                   name="otp"
+                   class="form-control otp-input"
+                   maxlength="6"
+                   pattern="[0-9]{6}"
+                   inputmode="numeric"
+                   placeholder="000000"
+                   required
+                   autofocus>
+        </div>
+
+        <button type="submit" class="btn-primary-custom">
+            <i class="bi bi-check-circle me-2"></i>Verifica e Accedi
+        </button>
+    </form>
+
+    <p class="text-center mt-3 mb-0" style="font-size:.85rem; color:var(--text-muted)">
+        <a href="{{ url_for('login') }}" style="color:var(--accent); text-decoration:none">
+            <i class="bi bi-arrow-left me-1"></i>Torna al login
+        </a>
+    </p>
+</div>
+{% endblock %}
