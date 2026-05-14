@@ -20,10 +20,10 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx'}
 RUOLI = ['Tecnico', 'Amministrativo', 'Direzione', 'Risorse Umane']
 
 PERMESSI = {
-    'Tecnico':        ['tecnico', 'kpi', 'match_archivi'],
-    'Amministrativo': ['amministrazione', 'banca', 'risorse_umane', 'fornitori', 'match_archivi'],
+    'Tecnico':        ['tecnico', 'kpi', 'match_archivi', 'mezzi'],
+    'Amministrativo': ['amministrazione', 'banca', 'risorse_umane', 'fornitori', 'match_archivi', 'mezzi'],
     'Direzione':      ['tecnico', 'kpi', 'amministrazione', 'banca', 'risorse_umane', 'owner',
-                       'admin_utenti', 'fornitori', 'match_archivi', 'tesoreria'],
+                       'admin_utenti', 'fornitori', 'match_archivi', 'tesoreria', 'mezzi'],
     'Risorse Umane':  ['risorse_umane'],
 }
 
@@ -38,6 +38,7 @@ SEZIONI_LABEL = {
     'fornitori':       'Fornitori',
     'match_archivi':   'Match e Archivi',
     'tesoreria':       'Tesoreria',
+    'mezzi':           'Mezzi',
 }
 
 SOGLIA_APPROVAZIONE = 5000.00

@@ -31,6 +31,7 @@ def create_app():
     from blueprints.admin import bp as admin_bp
     from blueprints.match_archivi import bp as match_archivi_bp
     from blueprints.tesoreria import bp as tesoreria_bp
+    from blueprints.mezzi import bp as mezzi_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(tecnico_bp)
@@ -43,8 +44,28 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(match_archivi_bp)
     app.register_blueprint(tesoreria_bp)
+    app.register_blueprint(mezzi_bp)
 
     with app.app_context():
         db.create_all()
+        _migrate(db)
 
     return app
+
+
+def _migrate(db):
+    """Aggiunge colonne nuove alle tabelle esistenti senza perdere dati."""
+    from sqlalchemy import inspect, text
+    insp = inspect(db.engine)
+
+    def _add_col(table, col, col_type):
+        cols = [c['name'] for c in insp.get_columns(table)]
+        if col not in cols:
+            with db.engine.connect() as conn:
+                conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {col} {col_type}'))
+                conn.commit()
+            print(f'[MIGRATION] {table}.{col} aggiunta')
+
+    if insp.has_table('costi_fornitori'):
+        _add_col('costi_fornitori', 'dipendente_id', 'INTEGER REFERENCES dipendenti(id)')
+        _add_col('costi_fornitori', 'mezzo_id',      'INTEGER REFERENCES mezzi(id)')
