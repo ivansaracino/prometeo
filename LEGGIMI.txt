@@ -1,0 +1,29 @@
+═══════════════════════════════════════════════════════════════
+PROMETEO — Come avviare l'applicazione
+═══════════════════════════════════════════════════════════════
+
+▸ AVVIO CONSIGLIATO (Windows, completamente silenzioso):
+    Fai doppio click su:  Avvia PROMETEO.vbs
+    Si aprirà direttamente il browser sull'app, senza alcuna
+    finestra terminale o splash screen.
+
+▸ AVVIO ALTERNATIVO (Windows):
+    Fai doppio click su:  avvia.bat
+    (puoi vedere brevemente un flash della console, poi nulla)
+
+▸ AVVIO Linux / Mac:
+    Da terminale:  ./avvia.sh
+
+───────────────────────────────────────────────────────────────
+COSA FA L'AVVIO
+───────────────────────────────────────────────────────────────
+1. Verifica se l'app è già in esecuzione sulla porta 5000
+   → se sì, apre direttamente il browser senza riavviare
+2. Altrimenti avvia il server Python in background invisibile
+3. Attende che il server sia pronto (max 30 secondi)
+4. Apre il browser su http://localhost:5000
+
+═══════════════════════════════════════════════════════════════
+NESSUNA finestra terminale viene mostrata.
+NESSUNA schermata di splash viene mostrata.
+═══════════════════════════════════════════════════════════════
