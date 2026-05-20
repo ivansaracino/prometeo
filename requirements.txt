@@ -7,3 +7,5 @@ pdfplumber
 reportlab
 Pillow
 pytesseract
+python-dotenv
+PyMySQL

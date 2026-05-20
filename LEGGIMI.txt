@@ -27,3 +27,120 @@ COSA FA L'AVVIO
 NESSUNA finestra terminale viene mostrata.
 NESSUNA schermata di splash viene mostrata.
 ═══════════════════════════════════════════════════════════════
+
+
+═══════════════════════════════════════════════════════════════
+MIGRAZIONE A MYSQL — Istruzioni per gli sviluppatori
+═══════════════════════════════════════════════════════════════
+
+L'applicazione usa MySQL come database. Di default ha un fallback
+a SQLite (instance/webapp.db) se DATABASE_URL non è configurata,
+ma per l'uso in team è richiesto MySQL.
+
+───────────────────────────────────────────────────────────────
+PREREQUISITI
+───────────────────────────────────────────────────────────────
+▸ Python 3.9+
+▸ Un server MySQL raggiungibile (locale, Docker, o remoto)
+▸ Accesso a un utente MySQL con permessi CREATE/INSERT/ALTER
+
+───────────────────────────────────────────────────────────────
+PASSO 1 — Installa le dipendenze Python
+───────────────────────────────────────────────────────────────
+    pip install -r requirements.txt
+
+Le dipendenze rilevanti per MySQL sono:
+  - PyMySQL      (driver MySQL puro-Python)
+  - python-dotenv (caricamento variabili da .env)
+
+───────────────────────────────────────────────────────────────
+PASSO 2 — Crea il file .env
+───────────────────────────────────────────────────────────────
+Copia il file di esempio e compilalo con i tuoi valori:
+
+    cp .env.example .env
+
+Apri .env e imposta:
+
+  DATABASE_URL=mysql+pymysql://utente:password@host:porta/prometeo
+  SESSION_SECRET=<stringa casuale lunga>
+
+Per generare un SESSION_SECRET sicuro:
+
+    python3 -c "import secrets; print(secrets.token_hex(32))"
+
+Esempi di DATABASE_URL:
+  MySQL locale standard:  mysql+pymysql://root:password@localhost:3306/prometeo
+  MySQL in Docker:        mysql+pymysql://root:password@localhost:33060/prometeo
+  MySQL remoto:           mysql+pymysql://utente:password@192.168.1.10:3306/prometeo
+
+NOTA: il file .env è escluso da git (vedi .gitignore) e non
+      deve mai essere committato — contiene credenziali sensibili.
+
+───────────────────────────────────────────────────────────────
+PASSO 3 — Crea il database MySQL vuoto
+───────────────────────────────────────────────────────────────
+Connettiti al tuo server MySQL ed esegui:
+
+    CREATE DATABASE prometeo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+Esempio con Docker:
+    docker exec -it <nome_container> mysql -uroot -p \
+      -e "CREATE DATABASE prometeo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+───────────────────────────────────────────────────────────────
+PASSO 4 — Crea le tabelle
+───────────────────────────────────────────────────────────────
+Avvia l'app una volta: SQLAlchemy creerà automaticamente tutte
+le tabelle nel database MySQL appena configurato.
+
+    python3 -c "from app_factory import create_app; create_app(); print('OK')"
+
+Dovresti vedere righe [MIGRATION] seguite da "OK".
+
+───────────────────────────────────────────────────────────────
+PASSO 5 — Migra i dati esistenti da SQLite (opzionale)
+───────────────────────────────────────────────────────────────
+Se hai già dati nel file SQLite (instance/webapp.db) che vuoi
+trasferire su MySQL, esegui lo script di migrazione:
+
+    python3 migrate_to_mysql.py
+
+Lo script:
+  - Legge DATABASE_URL dal file .env
+  - Trasferisce tutti i dati da instance/webapp.db a MySQL
+  - Rispetta l'ordine delle foreign key
+  - È sicuro rieseguirlo: svuota e ricarica ogni tabella
+
+Per usare un file SQLite in una posizione diversa:
+
+    python3 migrate_to_mysql.py --sqlite /percorso/webapp.db
+
+───────────────────────────────────────────────────────────────
+PASSO 6 — Avvia l'applicazione
+───────────────────────────────────────────────────────────────
+Avvia normalmente con uno dei metodi descritti in cima a questo
+file. L'app leggerà DATABASE_URL da .env e si connetterà a MySQL.
+
+Per avvio manuale da terminale:
+
+    python3 run.py
+
+NOTA: su macOS la porta 5000 può essere occupata da AirPlay
+Receiver. In quel caso usa una porta alternativa:
+
+    PORT=5002 python3 run.py
+
+───────────────────────────────────────────────────────────────
+VERIFICA FINALE
+───────────────────────────────────────────────────────────────
+1. Apri il browser su http://localhost:5000 (o la porta scelta)
+2. Effettua il login con le tue credenziali
+3. Verifica che i dati siano presenti (clienti, fatture, ecc.)
+
+In caso di errore di connessione al DB, controlla:
+  - che il server MySQL sia in esecuzione
+  - che DATABASE_URL in .env sia corretta (host, porta, credenziali)
+  - che il database "prometeo" esista sul server MySQL
+
+═══════════════════════════════════════════════════════════════

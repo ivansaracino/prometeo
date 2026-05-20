@@ -3564,7 +3564,7 @@ with app.app_context():
     ord_cols = [c['name'] for c in inspector.get_columns('ordini')]
     with db.engine.connect() as conn:
         for col, ddl in [
-            ('commessa_id',   'INTEGER REFERENCES commesse(id)'),
+            ('commessa_id',   'INTEGER'),
             ('identificativo', 'VARCHAR(50)'),
             ('cig',           'VARCHAR(200)'),
             ('cup',           'VARCHAR(200)'),
@@ -3603,14 +3603,14 @@ with app.app_context():
     cf_cols2 = [c['name'] for c in inspector.get_columns('costi_fornitori')]
     if 'commessa_id' not in cf_cols2:
         with db.engine.connect() as conn:
-            conn.execute(text('ALTER TABLE costi_fornitori ADD COLUMN commessa_id INTEGER REFERENCES commesse(id)'))
+            conn.execute(text('ALTER TABLE costi_fornitori ADD COLUMN commessa_id INTEGER'))
             conn.commit()
     # Migrazione: cliente_id + commessa_id + approvazione su fatture
     ft_cols = [c['name'] for c in inspector.get_columns('fatture')]
     with db.engine.connect() as conn:
         for col, ddl in [
-            ('cliente_id',          'INTEGER REFERENCES clienti(id)'),
-            ('commessa_id',         'INTEGER REFERENCES commesse(id)'),
+            ('cliente_id',          'INTEGER'),
+            ('commessa_id',         'INTEGER'),
             ('stato_approvazione',  "VARCHAR(20) DEFAULT 'approvato'"),
             ('codice_cliente_ref',  'VARCHAR(20)'),
             ('codice_commessa_ref', 'VARCHAR(20)'),
@@ -3625,7 +3625,7 @@ with app.app_context():
     ft_cols2 = [c['name'] for c in inspector.get_columns('fatture')]
     with db.engine.connect() as conn:
         for col, ddl in [
-            ('tecnico_id',     'INTEGER REFERENCES users(id)'),
+            ('tecnico_id',     'INTEGER'),
             ('motivo_rifiuto', 'TEXT'),
         ]:
             if col not in ft_cols2:
@@ -3639,7 +3639,7 @@ with app.app_context():
         with db.engine.connect() as conn:
             for col, ddl in [
                 ('file_path',          'VARCHAR(500)'),
-                ('tecnico_id',         'INTEGER REFERENCES users(id)'),
+                ('tecnico_id',         'INTEGER'),
                 ('motivo_rifiuto',     'TEXT'),
                 ('indirizzo_cantiere', 'VARCHAR(500)'),
             ]:
@@ -3658,11 +3658,11 @@ with app.app_context():
             # Sposta costi esistenti
             with db.engine.connect() as conn:
                 conn.execute(text(
-                    f'UPDATE costi_fornitori SET commessa_id={c.id} WHERE cliente_id={cl.id} AND commessa_id IS NULL'
-                ))
+                    'UPDATE costi_fornitori SET commessa_id=:cid WHERE cliente_id=:lid AND commessa_id IS NULL'
+                ), {'cid': c.id, 'lid': cl.id})
                 conn.execute(text(
-                    f'UPDATE fatture SET commessa_id={c.id} WHERE cliente_id={cl.id} AND commessa_id IS NULL AND tipo=\'passiva\''
-                ))
+                    "UPDATE fatture SET commessa_id=:cid WHERE cliente_id=:lid AND commessa_id IS NULL AND tipo='passiva'"
+                ), {'cid': c.id, 'lid': cl.id})
                 conn.commit()
             migrated = True
     if migrated:
@@ -3678,7 +3678,7 @@ with app.app_context():
     for _col, _typ in [('piva_cliente','VARCHAR(30)'),('mia_piva','VARCHAR(30)'),
                        ('indirizzo_cliente','VARCHAR(500)'),('pec_cliente','VARCHAR(200)'),
                        ('cup','VARCHAR(50)'),('cig','VARCHAR(50)'),
-                       ('aliquota_iva','REAL'),('importo_netto','REAL')]:
+                       ('aliquota_iva','FLOAT'),('importo_netto','FLOAT')]:
         if _col not in _ft_ext:
             with db.engine.connect() as _c:
                 _c.execute(text(f'ALTER TABLE fatture ADD COLUMN {_col} {_typ}'))
@@ -3687,14 +3687,14 @@ with app.app_context():
     if not inspector.has_table('righe_fattura_attiva'):
         db.session.execute(text('''
             CREATE TABLE righe_fattura_attiva (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 fattura_id INTEGER NOT NULL REFERENCES fatture(id) ON DELETE CASCADE,
                 articolo VARCHAR(100),
                 descrizione TEXT NOT NULL,
-                quantita REAL,
+                quantita FLOAT,
                 unita_misura VARCHAR(20),
-                prezzo_unitario REAL,
-                importo_netto REAL
+                prezzo_unitario FLOAT,
+                importo_netto FLOAT
             )
         '''))
         db.session.commit()
@@ -3713,15 +3713,15 @@ with app.app_context():
     if not inspector.has_table('righe_ddt'):
         db.session.execute(text('''
             CREATE TABLE righe_ddt (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 ddt_id INTEGER NOT NULL REFERENCES ddt(id) ON DELETE CASCADE,
                 commessa_id INTEGER REFERENCES commesse(id),
                 codice_commessa VARCHAR(30),
                 descrizione TEXT NOT NULL,
-                quantita REAL,
+                quantita FLOAT,
                 unita_misura VARCHAR(20),
-                prezzo_unitario REAL,
-                importo REAL
+                prezzo_unitario FLOAT,
+                importo FLOAT
             )
         '''))
         db.session.commit()

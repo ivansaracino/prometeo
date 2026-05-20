@@ -3,11 +3,17 @@ from flask import Flask
 from extensions import db, login_manager
 from config import UPLOAD_ROOT
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 
 def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-prod')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///webapp.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///webapp.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
@@ -101,15 +107,15 @@ def _migrate(db):
         _add_col('commesse', 'codice_custom', 'VARCHAR(50)')
 
     if insp.has_table('costi_fornitori'):
-        _add_col('costi_fornitori', 'dipendente_id', 'INTEGER REFERENCES dipendenti(id)')
-        _add_col('costi_fornitori', 'mezzo_id',      'INTEGER REFERENCES mezzi(id)')
-        _add_col('costi_fornitori', 'fattura_id',    'INTEGER REFERENCES fatture(id)')
-        _add_col('costi_fornitori', 'riga_fattura_id', 'INTEGER REFERENCES righe_fattura_attiva(id)')
-        _add_col('costi_fornitori', 'tecnico_id',   'INTEGER REFERENCES users(id)')
+        _add_col('costi_fornitori', 'dipendente_id',   'INTEGER')
+        _add_col('costi_fornitori', 'mezzo_id',        'INTEGER')
+        _add_col('costi_fornitori', 'fattura_id',      'INTEGER')
+        _add_col('costi_fornitori', 'riga_fattura_id', 'INTEGER')
+        _add_col('costi_fornitori', 'tecnico_id',      'INTEGER')
         _add_col('costi_fornitori', 'motivo_rifiuto', 'TEXT')
 
     if insp.has_table('righe_fattura_attiva'):
-        _add_col('righe_fattura_attiva', 'commessa_id', 'INTEGER REFERENCES commesse(id)')
+        _add_col('righe_fattura_attiva', 'commessa_id', 'INTEGER')
 
     if insp.has_table('righe_ddt'):
         _add_col('righe_ddt', 'articolo', 'VARCHAR(100)')
